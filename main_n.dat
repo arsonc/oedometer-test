@@ -1,0 +1,157 @@
+;Unit
+;Length: m
+;Time: s
+;Weight: kg
+;Force:N
+
+new
+call %fist%/2d_3d/fishcall.FIS
+call %fist%/2d_3d/crk.FIS
+call weibull_strength.dat
+call box_gen_smaller.dat
+call contact_test.dat
+Call output_con.dat
+;call def_breakw.dat
+call def_breakw_expension_subbonded34.dat
+call compression_timecontrol.dat
+;call compression.dat
+;call check.dat
+call basic_functions.dat
+;set random 11451
+;------------------------------
+;1.porosity 45, no breakage
+;2.velocity 0.1m/s
+;3.from ctest. 
+;4.low bond strength, calm after compression
+;5.12.0 initial strength, m = 3.0
+;6.11.45mm, poro=46,G=2.2
+;7.bond strength size effect;hertz bond stiffness;try low sigma0 (10MPa) and strong bond strength
+;------------------------------
+initial_paras
+cylinder_gen
+;ball_gen
+delete_out_cylinder
+
+property density 2.75e3 kn 4.0e5 ks 4.0e5 friction 0.5 range id 1 80000 ;400N/mm
+
+
+plot creat view_1
+plot add wall ball lcyan active on
+plot add cforce 
+;set dt dscale
+set plot avi size 640 480 ;set to avi, specify size
+plot set mag 1.95
+movie avi_open file box_model.avi
+movie step 800 1 file box_model.avi
+plot close view_1
+
+set log on overwrite
+
+plot create breakage
+;plot add ball range id count_num 200000
+plot add wall wireframe on
+plot cluster range id 50000 200000
+plot set mag 1.95
+set plot avi size 640 480 ;set to avi, specify size
+movie avi_open file breakage.avi
+movie step 800 2 file breakage.avi
+plot close breakage
+
+initial radius mul 10 range id 1 80000
+damp local 0.0
+damp viscous normal 0.7 shear 0.7
+
+set time 0
+cycle 2000 calm 1
+delete_out_cylinder
+delete_out_sample
+porisity_generation
+
+set gravity 0 0 -9.8e3
+wall id=1 kn=8.0e8 friction=0.0
+wall id=5 kn=8.0e8 friction=0.0
+wall id=6 kn=8.0e8 friction=0.0
+cycle 1000 calm 10
+cycle 10000 calm 200
+
+
+
+set gravity 0 0 -9.8e2
+wall id=1 kn=8.0e7 friction=0.0
+wall id=5 kn=8.0e7 friction=0.0
+wall id=6 kn=8.0e7 friction=0.0
+cycle 10000 calm 10
+
+set gravity 0 0 -9.8e1
+wall id=1 kn=8.0e6 friction=0.0
+wall id=5 kn=8.0e6 friction=0.0
+wall id=6 kn=8.0e6 friction=0.0
+cycle 10000 calm 10
+
+set gravity 0 0 -9.8
+wall id=1 kn=8.0e10 friction=0.0
+wall id=5 kn=8.0e10 friction=0.0
+wall id=6 kn=8.0e10 friction=0.0
+cycle 10000 
+
+damp local 0.7
+damp viscous normal 0.0 shear 0.0
+
+solve average 0.001 max 0.005 step 20000
+
+;set fishcall FC_PB_DEL  pbbreak_count
+;set fishcall FC_CYC_MOT  delete_out_cylinder
+
+;delete_out_sample
+;porisity_generation
+plot current 2
+plot subtract 1
+plot add ball range id count_num 200000 
+plot close breakage
+
+ball_number
+sample_volume
+volume_output
+;!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+model hertz
+property density 2.75e3 poiss material_poiss  shear material_G  friction 0.5 range id 1 80000
+;!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+
+set fishcall FC_CONT_CREATE change_ctype
+cycle 1000 calm 5
+solve average 0.001 maximum 1e-10 step 20000
+
+
+Wall property zv -8.0  range id = 5
+contact_test
+;Wall property zv -1.0  range id = 5
+;reach_to_exp_height
+solve average 0.001 maximum 1e-10 step 60000
+
+hist wall zforce id=5
+hist total_distance
+hist breakage_events
+hist eve_maxcforce
+;hist idmax
+hist p1_ave
+hist p2_ave
+hist p3_ave
+
+Wall property zv -5.0e-1  range id = 5
+set fishcall FC_PB_DEL bp_broken_count
+save before_com.sav
+current_cluster2
+cluster_output_ini
+;SET safety_fac 0.5
+PSD_output_strain
+crk_init
+compression
+
+;history write 1 2 3 file network.txt
+hist write 4 5 6 file  px_ave.txt
+movie avi_close file box_model.avi
+movie avi_close file breakage.avi
+current_cluster2
+cluster_output_end
+save final.sav

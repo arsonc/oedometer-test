@@ -1,0 +1,43 @@
+def weibull_strength
+	d0 = 1.36e-3/10.0	;orginal particle size. /10.0 because generate smaller particles first.
+	modulus = 3.0	;weibull modulus
+	
+	current_d = b_rad(bp)*2.0;
+	sigma0_d = sigma0*(d0/current_d)^(3.0/modulus)
+	
+	uu = urand
+	b_extra(bp,1) = sigma0_d*(-2.303*log(1-uu))^(1.0/modulus)
+	b_extra(bp,5) = 1 ; first generation
+	;log in PFC is base 10
+	;Inverse transform sampling  https://en.wikipedia.org/wiki/Inverse_transform_sampling
+
+end
+
+;----------------------------------------------------------------------------------------
+def weibull_bond_strength
+
+	d0 = 1.36e-3	;average diameter of intact particle
+	temp_bp1 = c_ball1(cp)
+	temp_bp2 = c_ball2(cp)
+	current_pb_diameter = 0.5*( b_rad(temp_bp1)+b_rad(temp_bp2) )*2.0  ;average radius ball1 and ball2, double to get diameter.
+	modulus = 3.0	;weibull modulus
+	
+	sigma0_d = sigma_exp*(d0/current_pb_diameter)^(3.0/modulus)
+	uu = urand
+	pb_nstrength( pb_head ) = (sigma0_d*(-2.303*log(1-uu))^(1.0/modulus))*1.3
+	pb_sstrength( pb_head ) = pb_nstrength( pb_head )*1.5  ; ratio shear to normal strength
+end
+;----------------------------------------------------------------------------------------
+def weibull_subball_strength
+	
+	d0 = 1.36e-3	;orginal particle size. /10.0 because generate smaller particles first.
+	modulus = 3.0	;weibull modulus
+	
+	current_d = b_rad(bpnew)*2.0;
+	sigma0_d = sigma0*(d0/current_d)^(3.0/modulus)	
+	uu = urand
+	b_extra( bpnew , 1 ) = sigma0_d*(-2.303*log(1-uu))^(1.0/modulus)
+	;log in PFC is base 10
+	;Inverse transform sampling  https://en.wikipedia.org/wiki/Inverse_transform_sampling
+
+end

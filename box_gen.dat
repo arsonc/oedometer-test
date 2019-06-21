@@ -1,0 +1,405 @@
+def initial_paras
+	array stress_b(3,3)
+	array matrix_A(3,3)
+	array matrix_B(3,3)
+	array matrix_B2(3,3)
+	array c_vector(3)
+	array cf_vector(3)
+	array principal(3)
+	array temp_array1(3)
+	array temp_check(3,3)
+	
+	array eigenvalue(3)
+	array eigenvector(3,3)
+	
+	array xbreakage(50000)
+	array ybreakage(50000)
+	array zbreakage(50000)
+
+	array compressive_force(50000)
+	array sample_height(50000)
+	array s_breakage_events(50000)
+	array s_breakage_events2(50000)
+	array s_volume(1)
+	
+
+	breakage_events = 0
+	
+	;tensile strength is 3MPa
+	newball_start_id = upper_id 
+	newball_start_idP1 = newball_start_id + 1
+	final_strain = 0.15
+	eve_maxcforce = 0.0
+	total_distance = 0.0
+	material_G = 2.2e9
+	material_poiss = 0.25
+	exp_sample_height = 15.0e-3
+	exp_sample_porosity =0.40
+	expansion_ratio = (2.0)^(1.0/3)	
+
+	PSD_mu1 = 1.32335e-3
+	PSD_sigma1 = 0.0524048e-3
+	PSD_mu2 = 1.32263e-3
+	PSD_sigma2 = 0.054332e-3
+	PSD_mu = (PSD_mu1 + PSD_mu2)/2.0
+	PSD_sigma = (PSD_sigma1 + PSD_sigma2 )/2.0
+ 
+end
+;----------------------------------------------------------------------------------------------
+def  box_gen
+
+box_size1 = 20			; half length of the box
+box_size2 = -box_size1		; negative half length of the box
+
+box_height1 =2*box_size1	; half  height
+box_height2 =-box_height1	; negative half  height
+
+;the length and widthe of the box is 2*box_size1
+
+;box2_size1=0.9;size of internal box. generate two boxes and put balls between them to avoid balls overlap with cluster.
+;box2_size2=-box2_size1
+
+command
+	;the walls are defined in the sequeence that front, behind, left, right, up, bottom
+	wall id=1 kn=1e50 &
+	face (box_size2, box_size2 , box_height2 ) (box_size2, box_size2 , box_height1 ) (box_size1, box_size2 , box_height1 ) (box_size1, box_size2 , box_height2 )
+	
+	wall id=2 kn=1e50 &
+	face (box_size2, box_size1, box_height2 ) (box_size1, box_size1 , box_height2 ) (box_size1, box_size1 , box_height1 ) (box_size2, box_size1 , box_height1 ) 
+
+	wall id=3 kn=1e50 &
+	face (box_size2,box_size2, box_height2 ) (box_size2,box_size1, box_height2 ) (box_size2,box_size1, box_height1 ) (box_size2,box_size2, box_height1 ) 
+
+	wall id=4 kn=1e50 &
+	face (box_size1,box_size2, box_height2 ) (box_size1,box_size2, box_height1 ) (box_size1,box_size1, box_height1 ) (box_size1,box_size1, box_height2 ) 
+ 
+	wall id=5 kn=1e50 &
+	face (box_size2,box_size2, box_height1 ) (box_size2,box_size1, box_height1 ) (box_size1,box_size1, box_height1 ) (box_size1 , box_size2, box_height1 )
+
+	wall id=6 kn=1e50 &   
+	face (box_size2,box_size2, box_height2 ) (box_size1,box_size2, box_height2 ) (box_size1,box_size1, box_height2 ) (box_size2 , box_size1, box_height2 )
+
+	;the walls are defined in the sequeence that front, behind, left, right, up, bottom
+	;counterclockwise as seen from the active side
+	
+;	wall id=7 kn=1e50 &
+;	face (box2_size2,box2_size2,box2_size2)  (box2_size1,box2_size2,box2_size2) (box2_size1,box2_size2,box2_size1) (box2_size2,box2_size2,box2_size1) 
+	
+;	wall id=8 kn=1e30 &
+;	face (box2_size2,box2_size1,box2_size2) (box2_size2,box2_size1,box2_size1) (box2_size1,box2_size1,box2_size1)  (box2_size1,box2_size1,box2_size2) 
+
+;	wall id=9 kn=1e30 &
+;	face (box2_size2,box2_size2,box2_size2) (box2_size2,box2_size2,box2_size1)  (box2_size2,box2_size1,box2_size1) (box2_size2,box2_size1,box2_size2)   
+
+;	wall id=10 kn=1e30 &
+;	face (box2_size1,box2_size2,box2_size2) (box2_size1,box2_size1,box2_size2) (box2_size1,box2_size1,box2_size1) (box2_size1,box2_size2,box2_size1)    
+
+;	wall id=11 kn=1e30 &
+;	face (box2_size2,box2_size2,box2_size1)  (box2_size1,box2_size2,box2_size1) (box2_size1,box2_size1,box2_size1) (box2_size2,box2_size1,box2_size1)  
+
+;	wall id=12 kn=1e30 &
+;	face (box2_size2,box2_size2,box2_size2) (box2_size2,box2_size1,box2_size2)  (box2_size1,box2_size1,box2_size2) (box2_size1,box2_size2,box2_size2)  
+
+end_command
+
+
+level_height = box_height1 * 2.0 / 10
+level_number = 500
+
+loop level (1,10)
+
+	lower_level =box_height2+(level-1)*level_height
+	upper_level =box_height2+level*level_height
+	
+
+	lower_id = 1+level_number*(level-1)
+	upper_id = level_number*level
+	
+	command
+		gen x= (box_size2,box_size1) y= (box_size2,box_size1) z= ( lower_level , upper_level ) rad 0.02 0.02  id lower_id  upper_id 
+
+	end_command
+
+
+end_loop
+
+
+end
+;--------------------------------------------------------------------------------------------------------------------------------------------
+
+def cylinder_gen
+calibration=1
+
+if calibration = 0
+	shape_factor = 1
+	radius_wp = 20; radius of the sample
+	box_size1 = 20
+	box_size2 = -box_size1
+	box_height1 =2*box_size1
+	box_height2 =-box_height1
+;	cylinder radius radius_wp, height 4*radius_wp
+
+	command
+		wall id=1 kn=5e8  friction=0.0 type cylinder end1 0 0 box_height2 end2 0 0 box_height1 rad radius_wp radius_wp
+	
+		wall id=5 kn=5e8  friction=0.0 &
+		face (box_size2,box_size2, box_height1 ) (box_size2,box_size1, box_height1 ) (box_size1,box_size1, box_height1 ) (box_size1 , box_size2, box_height1 )
+	
+		wall id=6 kn=5e8  friction=0.0 &   
+		face (box_size2,box_size2, box_height2 ) (box_size1,box_size2, box_height2 ) (box_size1,box_size1, box_height2 ) (box_size2 , box_size1, box_height2 )
+	end_command
+	
+else 
+	shape_factor = 1
+	radius_wp = 22.5e-3
+	box_size1 = 22.5e-3	
+	box_size2 = -box_size1
+	box_height1 =20.0e-3
+	box_height2 =-5.0e-3
+	box_height = abs(box_height1-box_height2) 
+	
+	ball_radius = 0.68e-3
+
+	
+	command
+		wall id=1 kn=5e8 friction=0.0 type cylinder end1 0 0 box_height2 end2 0 0 box_height1 rad radius_wp radius_wp
+		wall id=5 kn=5e8 friction=0.0 &
+		face (box_size2,box_size2, box_height1 ) (box_size2,box_size1, box_height1 ) (box_size1,box_size1, box_height1 ) (box_size1 , box_size2, box_height1 )
+		wall id=6 kn=5e8 friction=0.0 &
+		face (box_size2,box_size2, box_height2 ) (box_size1,box_size2, box_height2 ) (box_size1,box_size1, box_height2 ) (box_size2 , box_size1, box_height2 )
+	end_command
+;<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<method 1<<<<<<<<<<<<<<
+;	level_height = (box_height1/2 -box_height2) / 10.0		;generation in 10 levels
+;	square_sphere_ratio = 4.0/pi					;generate balls in square then delete the ones outside cylinder 4.0/pi=1.28
+;	particles_assumed_cylindar = round(pi*radius_wp^2*15*0.4/(4.0/3*pi*ball_radius^3)) ;assume porosity 0.4, height 15mm
+;	particles_assumed = particles_assumed_cylindar * 1.475 ;back analysis. previous particles_assumed results in 1kPa at sample height 10.2mm. In order to get 15/10.2, we need to multiply by 15/10.15
+;	level_number = round(square_sphere_ratio*particles_assumed/10)		;gen in 10 levels
+;	level_gen = 10
+;	total_ball_sample = level_number*level_gen
+;	gen_size1 = radius_wp
+;	gen_size2 = -gen_size1
+;	initial_ball_radius = ball_radius/10
+;>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>method 1>>>>>>>>>>>>>>>
+
+;<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<method 2<<<<<<<<<<<<<<
+	level_height = (box_height1 -box_height2) / 10.0		;generation in 10 levels
+	square_sphere_ratio = 4.0/pi	
+	particles_assumed_cylindar = round(pi*radius_wp^2* box_height*0.8 *(1.0-0.4)/(4.0/3.0*pi*ball_radius^3)) ;assume porosity 0.4, height is 0.8 total height
+	particles_assumed = round( particles_assumed_cylindar ) ;no back analysis data.
+	level_number = round(square_sphere_ratio*particles_assumed/10)
+	level_gen = 10
+	array input_size( 20000 )	
+	status  = open( 'normal_dis_PSD.txt', 0 , 1 )
+	status  = read( input_size , 20000)
+	status = close
+	gen_size1 = radius_wp
+	gen_size2 = -gen_size1
+;>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>method 2>>>>>>>>>>>>>>>
+	starter = 1
+	loop level (1,level_gen)
+		lower_level =box_height2+(level-1)*level_height
+		upper_level =box_height2+level*level_height
+		lower_id = 1+level_number*(level-1)
+		upper_id = level_number*level
+	;<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<method 1<<<<<<<<<<<<<<
+	;	command
+	;		gen x= (gen_size2,gen_size1) y= (gen_size2,gen_size1) z= ( lower_level , upper_level ) rad initial_ball_radius initial_ball_radius id lower_id  upper_id 
+	;	end_command
+	;>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>method 1>>>>>>>>>>>>>>>
+	
+	;<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<method 2<<<<<<<<<<<<<<
+		loop count_num (lower_id,upper_id )
+		;	input_ball_rad = float( input_size( starter ))/20.0
+			input_ball_rad = (PSD_sigma*grand + PSD_mu)/20.0
+			input_ball_x = urand*( gen_size1 - gen_size2 ) + gen_size2
+			input_ball_y = urand*( gen_size1 - gen_size2 ) + gen_size2
+			input_ball_z = urand*( upper_level - lower_level ) + lower_level
+			command
+				;ball radius input_ball_rad  id count_num  x input_ball_x  y input_ball_y  z input_ball_z 
+				gen x= ( gen_size2 , gen_size1 ) y= ( gen_size2 , gen_size1 ) z= ( lower_level , upper_level ) & 
+				rad input_ball_rad input_ball_rad id count_num count_num
+			end_command
+			starter = starter + 1		
+		end_loop
+		total_ball_sample = count_num	
+	;>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>method 2>>>>>>>>>>>>>>>
+	end_loop
+	command
+		set extra ball 2
+	end_command
+	bp=ball_head
+	loop while bp # null
+		bnext = b_next(bp)
+		check_dis = sqrt( b_x(bp)^2+b_y(bp)^2)
+		if check_dis>=radius_wp
+			ii=b_delete(bp)
+		else
+			weibull_strength
+		end_if
+		bp = bnext  
+	end_loop
+end_if
+
+end
+;----------------------------------------------------------------------------------------------------------------------------------------------
+def ball_gen
+
+
+level_height = box_height1 * 2.0 / 10
+generation_level = 10
+if shape_factor = 1
+	level_number = round(400.0*4.0/pi) ;
+else
+	level_number = 400 ;8500*4/pi
+end_if
+
+total_ball_sample = level_number*generation_level
+gen_size1 = radius_wp
+gen_size2 = -gen_size1
+
+loop level (1,10)
+
+	lower_level =box_height2+(level-1)*level_height
+	upper_level =box_height2+level*level_height
+	
+
+	lower_id = 1+level_number*(level-1)
+	upper_id = level_number*level
+	
+	command
+		gen x= (gen_size2,gen_size1) y= (gen_size2,gen_size1) z= ( lower_level , upper_level ) rad 0.02 0.02  id lower_id  upper_id 
+
+	end_command
+end_loop
+end
+
+;--------------------------------------------------------------------------------------------------------------------------------------------
+def delete_out_cylinder
+
+	bp_pos_check = ball_head
+	loop while bp_pos_check # null
+		x_pos_bp = b_x( bp_pos_check )
+		y_pos_bp = b_y( bp_pos_check )
+		z_pos_bp = b_z( bp_pos_check )
+		center_pos_dis = sqrt(x_pos_bp^2 + y_pos_bp^2)
+
+		bnext = b_next( bp_pos_check )
+
+		if center_pos_dis > radius_wp		;check to center
+			ii = b_delete( bp_pos_check )
+		end_if
+		
+		if z_pos_bp > (box_height1 - total_distance)	;check top
+			ii = b_delete( bp_pos_check )		
+		end_if
+		
+		if z_pos_bp < box_height2 		; check bottom
+			ii = b_delete( bp_pos_check )		
+		end_if
+
+		bp_pos_check = bnext
+	end_loop
+
+end
+
+;--------------------------------------------------------------------------------------------------------------------------------------------
+def delete_out_sample
+	delete_boundary = exp_sample_height*1.01
+	bp_pos_check = ball_head
+	loop while bp_pos_check # null
+		x_pos_bp = b_x( bp_pos_check )
+		y_pos_bp = b_y( bp_pos_check )
+		z_pos_bp = b_z( bp_pos_check )
+		center_pos_dis = sqrt(x_pos_bp^2 + y_pos_bp^2)
+
+		bnext = b_next( bp_pos_check )
+
+		if center_pos_dis > radius_wp		;check to center
+			ii = b_delete( bp_pos_check )
+		end_if
+		
+		if z_pos_bp > ( delete_boundary  + box_height2 );check top
+			ii = b_delete( bp_pos_check )		
+		end_if
+		
+		if z_pos_bp < box_height2 		; check bottom
+			ii = b_delete( bp_pos_check )		
+		end_if
+
+		bp_pos_check = bnext
+	end_loop
+
+end
+
+;--------------------------------------------------------------------------------------------------------------------------------------------
+def porisity_generation
+	sample_volume
+	current_volume = vol_total
+	;current_sample_height = abs(box_height1-box_height2) - total_distance
+	
+	target_porosity = exp_sample_porosity
+	target_ball_vol = pi*radius_wp^2*exp_sample_height*(1.0-exp_sample_porosity)
+	
+	average_ball_volume = 4.0/3.0*pi*PSD_mu^3
+	loop while 1 # 2
+		iii = out('change ball number of porisity_generation')
+		sample_volume
+		iii=out('current volume is'+string(vol_total))
+		ball_number
+		iii=out('number of ball is'+string(idmax))
+
+		volume_diff = vol_total - target_ball_vol
+		if abs(volume_diff) < average_ball_volume*2.0
+			exit
+		end_if
+		if volume_diff > 0.0
+			numball_delete = round(volume_diff/average_ball_volume)
+			ii=out(string(numball_delete)+'is deleted')
+			loop ii (1,numball_add)
+				input_ball_x = urand*( gen_size1 - gen_size2 ) + gen_size2
+				input_ball_y = urand*( gen_size1 - gen_size2 ) + gen_size2
+				input_ball_z = urand*( box_height1 - box_height2 ) + box_height2
+				bp = ball_head
+				distance_point = 10000
+				loop while bp # null
+					distance_point_bp = (b_x(bp)-input_ball_x)^2+(b_y(bp)-input_ball_y)^2+(b_z(bp)-input_ball_z)^2
+					if distance_point_bp < distance_point
+						distance_point = distance_point_bp
+						ball_delete = bp
+					end_if
+					bp = b_next(bp)
+				end_loop
+				iiii = b_delete(ball_delete)
+			end_loop	
+		else
+			numball_add = round(abs(volume_diff)/average_ball_volume)
+			ii=out(string(numball_delete)+'is added')
+			loop ii (1,numball_add)
+				count_num = count_num + 1
+				input_ball_rad = (PSD_sigma*grand + PSD_mu)/20.0
+				ball_x_bound = gen_size1*0.5 ;0.5 make sure the particle in the sample
+				ball_x_bound_neg = -ball_x_bound
+				ball_y_bound = gen_size1*0.5 ;0.5 make sure the particle in the sample
+				ball_y_bound_neg = -ball_y_bound
+				ball_z_bound1 = box_height2+exp_sample_height
+				ball_z_bound2 = box_height2
+				command
+					gen x= ( ball_x_bound_neg , ball_x_bound ) y= ( ball_y_bound_neg , ball_y_bound ) z= ( ball_z_bound2 , ball_z_bound1 ) & 
+					rad input_ball_rad input_ball_rad id count_num count_num
+					property density 2.75e3 kn 4.0e5 ks 4.0e5 friction 0.5 range id 1 80000 ;400N/mm
+					initial radius mul 5 range id count_num count_num
+					cycle 100 calm 1
+					initial radius mul 2 range id count_num count_num
+					cycle 100 calm 1
+				end_command	
+			end_loop
+			command
+				cycle 500 calm 1
+			end_command
+		end_if
+		command
+			cycle 2000 calm 1
+		end_command
+		
+	end_loop
+end

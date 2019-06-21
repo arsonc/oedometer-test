@@ -1,0 +1,414 @@
+def size_check
+
+	lower_center = 0.0
+	upper_center = 0.0
+	cn_size_sample = box_size1*0.95
+	cn_size000= box_size1*0.8
+	cn_size00 = box_size1*0.7
+	cn_size0 = box_size1*0.6
+	cn_size1  = box_size1*0.5
+	cn_size2  = box_size1*0.4
+	cn_size3  = box_size1*0.3
+	cn_size4  = box_size1*0.25
+
+	search_ball_position = ball_head
+	lower_center = b_z( search_ball_position )
+	upper_center = b_z( search_ball_position )
+
+	loop while search_ball_position # null
+		z_position = b_z( search_ball_position )
+
+		if z_position < lower_center
+			lower_center = z_position
+		end_if
+		if z_position > upper_center
+			upper_center = z_position
+		end_if
+
+		search_ball_position= b_next(search_ball_position)
+	end_loop
+
+	assembly_center = (lower_center+upper_center)/2
+
+;----------------------------------0.8------------------------------------
+	num_ball_size000 = 0
+	num_ball_cn000 = 0
+	ball_head_size1 = ball_head
+
+	loop while ball_head_size1 # null
+		x_position = b_x( ball_head_size1 )
+		y_position = b_y( ball_head_size1 )
+		z_position = b_z( ball_head_size1 )
+
+		if abs(x_position) < cn_size000
+			if abs( y_position) < cn_size000
+				if abs(z_position-assembly_center) < cn_size000
+					num_ball_size000 = num_ball_size000 + 1
+					cp_ball_head_size1 = b_clist( ball_head_size1 )
+					loop while cp_ball_head_size1 # null
+						if c_ball1(cp_ball_head_size1) = ball_head_size1  
+							bp_other = c_ball2(cp_ball_head_size1)
+    						else
+      						bp_other = c_ball1(cp_ball_head_size1)
+      					end_if
+      					x_position2 = b_x( bp_other )
+						y_position2 = b_y( bp_other )
+						z_position2 = b_z( bp_other )
+
+      					if abs(x_position2) < cn_size000
+      						if abs( y_position2) < cn_size000
+      							if abs(z_position2-assembly_center) < cn_size000
+      								num_ball_cn000 = num_ball_cn000 +1
+      							end_if
+      						end_if
+						end_if
+
+						if c_ball1(cp_ball_head_size1) = ball_head_size1   ; determine which linked-list to follow
+      						cp_ball_head_size1 = c_b1clist(cp_ball_head_size1)      ; choose the one that surrounds bp
+    					else
+      						cp_ball_head_size1 = c_b2clist(cp_ball_head_size1)
+    					end_if
+
+  					end_loop
+  				end_if
+  			end_if
+  		end_if
+  		ball_head_size1 = b_next( ball_head_size1 )
+  	end_loop
+
+;----------------------------------0.7------------------------------------
+
+	num_ball_size00 = 0
+	num_ball_cn00 = 0
+	ball_head_size1 = ball_head
+
+	loop while ball_head_size1 # null
+		x_position = b_x( ball_head_size1 )
+		y_position = b_y( ball_head_size1 )
+		z_position = b_z( ball_head_size1 )
+
+		if abs(x_position) < cn_size00
+			if abs( y_position) < cn_size00
+				if abs(z_position-assembly_center) < cn_size00
+					num_ball_size00 = num_ball_size00 + 1
+					cp_ball_head_size1 = b_clist( ball_head_size1 )
+					loop while cp_ball_head_size1 # null
+						if c_ball1(cp_ball_head_size1) = ball_head_size1  
+							bp_other = c_ball2(cp_ball_head_size1)
+    						else
+      						bp_other = c_ball1(cp_ball_head_size1)
+      					end_if
+      					x_position2 = b_x( bp_other )
+						y_position2 = b_y( bp_other )
+						z_position2 = b_z( bp_other )
+
+      					if abs(x_position2) < cn_size00
+      						if abs( y_position2) < cn_size00
+      							if abs(z_position2-assembly_center) < cn_size00
+      								num_ball_cn00 = num_ball_cn00 +1
+      							end_if
+      						end_if
+						end_if
+
+						if c_ball1(cp_ball_head_size1) = ball_head_size1   ; determine which linked-list to follow
+      						cp_ball_head_size1 = c_b1clist(cp_ball_head_size1)      ; choose the one that surrounds bp
+    					else
+      						cp_ball_head_size1 = c_b2clist(cp_ball_head_size1)
+    					end_if
+
+  					end_loop
+  				end_if
+  			end_if
+  		end_if
+  		ball_head_size1 = b_next( ball_head_size1 )
+  	end_loop
+;----------------------------------0.6------------------------------------
+	num_ball_size0 = 0
+	num_ball_cn0 = 0
+	ball_head_size1 = ball_head
+
+	loop while ball_head_size1 # null
+		x_position = b_x( ball_head_size1 )
+		y_position = b_y( ball_head_size1 )
+		z_position = b_z( ball_head_size1 )
+
+		if abs(x_position) < cn_size0
+			if abs( y_position) < cn_size0
+				if abs(z_position-assembly_center) < cn_size0
+					num_ball_size0 = num_ball_size0 + 1
+					cp_ball_head_size1 = b_clist( ball_head_size1 )
+					loop while cp_ball_head_size1 # null
+						if c_ball1(cp_ball_head_size1) = ball_head_size1  
+							bp_other = c_ball2(cp_ball_head_size1)
+    						else
+      						bp_other = c_ball1(cp_ball_head_size1)
+      					end_if
+      					x_position2 = b_x( bp_other )
+						y_position2 = b_y( bp_other )
+						z_position2 = b_z( bp_other )
+
+      					if abs(x_position2) < cn_size0
+      						if abs( y_position2) < cn_size0
+      							if abs(z_position2-assembly_center) < cn_size0
+      								num_ball_cn0 = num_ball_cn0 +1
+      							end_if
+      						end_if
+						end_if
+
+						if c_ball1(cp_ball_head_size1) = ball_head_size1   ; determine which linked-list to follow
+      						cp_ball_head_size1 = c_b1clist(cp_ball_head_size1)      ; choose the one that surrounds bp
+    					else
+      						cp_ball_head_size1 = c_b2clist(cp_ball_head_size1)
+    					end_if
+
+  					end_loop
+  				end_if
+  			end_if
+  		end_if
+  		ball_head_size1 = b_next( ball_head_size1 )
+  	end_loop
+;----------------------------------0.5------------------------------------
+
+	num_ball_size1 = 0
+	num_ball_cn1 = 0
+	ball_head_size1 = ball_head
+
+	loop while ball_head_size1 # null
+		x_position = b_x( ball_head_size1 )
+		y_position = b_y( ball_head_size1 )
+		z_position = b_z( ball_head_size1 )
+
+		if abs(x_position) < cn_size1
+			if abs( y_position) < cn_size1
+				if abs(z_position-assembly_center) < cn_size1
+					num_ball_size1 = num_ball_size1 + 1
+					cp_ball_head_size1 = b_clist( ball_head_size1 )
+					loop while cp_ball_head_size1 # null
+						if c_ball1(cp_ball_head_size1) = ball_head_size1  
+							bp_other = c_ball2(cp_ball_head_size1)
+    						else
+      						bp_other = c_ball1(cp_ball_head_size1)
+      					end_if
+      					x_position2 = b_x( bp_other )
+						y_position2 = b_y( bp_other )
+						z_position2 = b_z( bp_other )
+
+      					if abs(x_position2) < cn_size1
+      						if abs( y_position2) < cn_size1
+      							if abs(z_position2-assembly_center) < cn_size1
+      								num_ball_cn1 = num_ball_cn1+1
+      							end_if
+      						end_if
+						end_if
+
+						if c_ball1(cp_ball_head_size1) = ball_head_size1   ; determine which linked-list to follow
+      						cp_ball_head_size1 = c_b1clist(cp_ball_head_size1)      ; choose the one that surrounds bp
+    					else
+      						cp_ball_head_size1 = c_b2clist(cp_ball_head_size1)
+    					end_if
+
+  					end_loop
+  				end_if
+  			end_if
+  		end_if
+  		ball_head_size1 = b_next( ball_head_size1 )
+  	end_loop
+
+;----------------------------------0.4------------------------------------
+
+; below are the check for 0.25 original size
+	num_ball_size2 = 0
+	num_ball_cn2 = 0
+	ball_head_size1 = ball_head
+
+	loop while ball_head_size1 # null
+		x_position = b_x( ball_head_size1 )
+		y_position = b_y( ball_head_size1 )
+		z_position = b_z( ball_head_size1 )
+
+		if abs(x_position) < cn_size2
+			if abs( y_position) < cn_size2
+				if abs(z_position-assembly_center) < cn_size2
+					num_ball_size2 = num_ball_size2 + 1
+					cp_ball_head_size1 = b_clist( ball_head_size1 )
+					loop while cp_ball_head_size1 # null
+						if c_ball1(cp_ball_head_size1) = ball_head_size1  
+							bp_other = c_ball2(cp_ball_head_size1)
+    						else
+      						bp_other = c_ball1(cp_ball_head_size1)
+      					end_if
+      					x_position2 = b_x( bp_other )
+						y_position2 = b_y( bp_other )
+						z_position2 = b_z( bp_other )
+
+      					if abs(x_position2) < cn_size2
+      						if abs( y_position2) < cn_size2
+      							if abs(z_position2-assembly_center) < cn_size2
+      								num_ball_cn2 = num_ball_cn2+1
+      							end_if
+      						end_if
+						end_if
+
+						if c_ball1(cp_ball_head_size1) = ball_head_size1   ; determine which linked-list to follow
+      						cp_ball_head_size1 = c_b1clist(cp_ball_head_size1)      ; choose the one that surrounds bp
+    					else
+      						cp_ball_head_size1 = c_b2clist(cp_ball_head_size1)
+    					end_if
+
+  					end_loop
+  				end_if
+  			end_if
+  		end_if
+  		ball_head_size1 = b_next( ball_head_size1 )
+  	end_loop
+
+;----------------------------------0.3------------------------------------
+
+; below are the check for 0.25 original size
+	num_ball_size3 = 0
+	num_ball_cn3 = 0
+	ball_head_size1 = ball_head
+
+	loop while ball_head_size1 # null
+		x_position = b_x( ball_head_size1 )
+		y_position = b_y( ball_head_size1 )
+		z_position = b_z( ball_head_size1 )
+
+		if abs(x_position) < cn_size3
+			if abs( y_position) < cn_size3
+				if abs(z_position-assembly_center) < cn_size3
+					num_ball_size3 = num_ball_size3 + 1
+					cp_ball_head_size1 = b_clist( ball_head_size1 )
+					loop while cp_ball_head_size1 # null
+						if c_ball1(cp_ball_head_size1) = ball_head_size1  
+							bp_other = c_ball2(cp_ball_head_size1)
+    						else
+      						bp_other = c_ball1(cp_ball_head_size1)
+      					end_if
+      					x_position2 = b_x( bp_other )
+						y_position2 = b_y( bp_other )
+						z_position2 = b_z( bp_other )
+
+      					if abs(x_position2) < cn_size3
+      						if abs( y_position2) < cn_size3
+      							if abs(z_position2-assembly_center) < cn_size3
+      								num_ball_cn3 = num_ball_cn3+1
+      							end_if
+      						end_if
+						end_if
+
+						if c_ball1(cp_ball_head_size1) = ball_head_size1   ; determine which linked-list to follow
+      						cp_ball_head_size1 = c_b1clist(cp_ball_head_size1)      ; choose the one that surrounds bp
+    					else
+      						cp_ball_head_size1 = c_b2clist(cp_ball_head_size1)
+    					end_if
+
+  					end_loop
+  				end_if
+  			end_if
+  		end_if
+  		ball_head_size1 = b_next( ball_head_size1 )
+  	end_loop
+;----------------------------------0.25------------------------------------
+	num_ball_size4 = 0
+	num_ball_cn4 = 0
+	ball_head_size1 = ball_head
+
+	loop while ball_head_size1 # null
+		x_position = b_x( ball_head_size1 )
+		y_position = b_y( ball_head_size1 )
+		z_position = b_z( ball_head_size1 )
+
+		if abs(x_position) < cn_size4
+			if abs( y_position) < cn_size4
+				if abs(z_position-assembly_center) < cn_size4
+					num_ball_size4 = num_ball_size4 + 1
+					cp_ball_head_size1 = b_clist( ball_head_size1 )
+					loop while cp_ball_head_size1 # null
+						if c_ball1(cp_ball_head_size1) = ball_head_size1  
+							bp_other = c_ball2(cp_ball_head_size1)
+    						else
+      						bp_other = c_ball1(cp_ball_head_size1)
+      					end_if
+      					x_position2 = b_x( bp_other )
+						y_position2 = b_y( bp_other )
+						z_position2 = b_z( bp_other )
+
+      					if abs(x_position2) < cn_size4
+      						if abs( y_position2) < cn_size4
+      							if abs(z_position2-assembly_center) < cn_size4
+      								num_ball_cn4 = num_ball_cn4+1
+      							end_if
+      						end_if
+						end_if
+
+						if c_ball1(cp_ball_head_size1) = ball_head_size1   ; determine which linked-list to follow
+      						cp_ball_head_size1 = c_b1clist(cp_ball_head_size1)      ; choose the one that surrounds bp
+    					else
+      						cp_ball_head_size1 = c_b2clist(cp_ball_head_size1)
+    					end_if
+
+  					end_loop
+  				end_if
+  			end_if
+  		end_if
+  		ball_head_size1 = b_next( ball_head_size1 )
+  	end_loop
+;----------------------------------0.25------------------------------------
+	num_ball_size_sample = 0
+	num_ball_cn_sample = 0
+	ball_head_size1 = ball_head
+
+	loop while ball_head_size1 # null
+		x_position = b_x( ball_head_size1 )
+		y_position = b_y( ball_head_size1 )
+		z_position = b_z( ball_head_size1 )
+
+		if abs(x_position) < cn_size_sample
+			if abs( y_position) < cn_size_sample
+				if abs(z_position-assembly_center) < cn_size_sample
+					num_ball_size_sample = num_ball_size_sample + 1
+					cp_ball_head_size1 = b_clist( ball_head_size1 )
+					loop while cp_ball_head_size1 # null
+						if c_ball1(cp_ball_head_size1) = ball_head_size1  
+							bp_other = c_ball2(cp_ball_head_size1)
+    						else
+      						bp_other = c_ball1(cp_ball_head_size1)
+      					end_if
+      					x_position2 = b_x( bp_other )
+						y_position2 = b_y( bp_other )
+						z_position2 = b_z( bp_other )
+
+      					if abs(x_position2) < cn_size_sample
+      						if abs( y_position2) < cn_size_sample
+      							if abs(z_position2-assembly_center) < cn_size_sample
+      								num_ball_cn_sample = num_ball_cn_sample+1
+      							end_if
+      						end_if
+						end_if
+
+						if c_ball1(cp_ball_head_size1) = ball_head_size1   ; determine which linked-list to follow
+      						cp_ball_head_size1 = c_b1clist(cp_ball_head_size1)      ; choose the one that surrounds bp
+    					else
+      						cp_ball_head_size1 = c_b2clist(cp_ball_head_size1)
+    					end_if
+
+  					end_loop
+  				end_if
+  			end_if
+  		end_if
+  		ball_head_size1 = b_next( ball_head_size1 )
+  	end_loop
+
+
+
+
+
+
+ii = out( string( num_ball_size_sample )+'	'+string( num_ball_size000 )+'	'+string(num_ball_size00)+'	'+string(num_ball_size0)+'	'+string(num_ball_size1)+'	'+string(num_ball_size2)+'	'+string(num_ball_size3)+'	'+string(num_ball_size4))
+
+ii = out( string(num_ball_cn_sample)+'	'+string(num_ball_cn000)+'	'+string(num_ball_cn00)+'	'+string(num_ball_cn0)+'	'+string(num_ball_cn1)+'	'+string(num_ball_cn2)+'	'+string(num_ball_cn3)+'	'+string(num_ball_cn4))
+
+end
+
+

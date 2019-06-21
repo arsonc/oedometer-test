@@ -1,0 +1,150 @@
+def zero_def
+
+
+if matrix_B(2,2) = 0
+	ii=out('0.00000e+00 is 0')
+else
+	ii=out('0.00000e+00 is not 0')
+end_if
+
+
+
+if matrix_B(2,2) # 0
+	ii=out('0.00000e+00 is not 0')
+else
+	ii=out('0.00000e+00 is 0')
+end_if
+
+
+
+
+
+
+end
+
+
+
+
+
+
+
+;----------------------------------
+
+def divede_zero
+
+
+zerodivide = 1/matrix_B(2,2)
+
+
+end
+
+
+	
+;---------------
+def check_contact
+
+
+	if c_ball1(cp) = bp then  ; find bp_other, the adjoining ball
+		bp_other = c_ball2(cp)
+	else
+		bp_other = c_ball1(cp)
+	end_if
+
+	other_type = pointer_type( bp_other )
+
+	check_fn_magnitude = c_nforce(cp)
+	
+	check_contact_number = 0
+
+	cp = b_clist( bp )     ; header of linked-list of contacts around bp
+	loop while cp # null
+		if c_ball1(cp) = bp then  ; find bp_other, the adjoining ball
+			bp_other = c_ball2(cp)
+		else
+			bp_other = c_ball1(cp)
+		end_if
+    		ii=out('***** adjacent ball has ID = '+string( b_id(bp_other) ))
+		
+		if c_ball1(cp) = bp then  ; determine which linked-list to follow
+      			cp = c_b1clist(cp)      ; choose the one that surrounds bp
+    		else
+      			cp = c_b2clist(cp)
+    		end_if
+		check_contact_number = check_contact_number +1
+  	end_loop
+
+;	check_distance = sqrt((b_x(bp)-b_x(bp_other))^2+(b_y(bp)-b_y(bp_other))^2+(b_z(bp)-b_z(bp_other))^2)
+;	check_sumradius = b_rad(bp)+b_rad(bp_other)	
+
+end
+
+
+def check_distance
+	
+	check_point = find_ball(23275)
+	
+	cp = b_clist( check_point  )     ; header of linked-list of contacts around bp
+	loop while cp # null
+		if c_ball1(cp) = bp then  ; find bp_other, the adjoining ball
+			bp_other = c_ball2(cp)
+		else
+			bp_other = c_ball1(cp)
+		end_if
+    		ii=out('***** adjacent ball has ID = '+string( b_id(bp_other) ))
+		
+
+	check_cpx = c_x( cp )  
+	check_cpy = c_y( cp )
+	check_cpz = c_z( cp )
+
+		if c_ball1(cp) = check_point  then  ; determine which linked-list to follow
+      			cp = c_b1clist(cp)      ; choose the one that surrounds bp
+    		else
+      			cp = c_b2clist(cp)
+    		end_if
+
+	command
+
+	print check_cpx 
+	print check_cpy 
+	print check_cpz 
+
+	end_command
+
+  	end_loop
+
+	check_distancebb = sqrt((b_x(check_point)-b_x(bp_other))^2+(b_y(check_point)-b_y(bp_other))^2+(b_z(check_point)-b_z(bp_other))^2)
+	check_sumradius = b_rad(check_point)+b_rad(bp_other)	
+	check_dis_b1c = sqrt((b_x(check_point)-check_cpx)^2+(b_y(check_point)-check_cpy)^2+(b_z(check_point)-check_cpz)^2)
+	check_dis_b2c = sqrt((b_x(bp_other)-check_cpx)^2+(b_y(bp_other)-check_cpy)^2+(b_z(bp_other)-check_cpz)^2)
+
+	radius_23275 =  b_rad(	check_point)
+	radius_15499 = b_rad(bp_other)
+
+	check_b1x = b_x(check_point)
+	check_b1y = b_y(check_point)
+	check_b1z = b_z(check_point)
+
+	check_b1x = b_x(bp_other)
+	check_b1y = b_y(bp_other)
+	check_b1z = b_z(bp_other)
+	
+	command
+	print radius_23275
+	print radius_15499 
+	print check_cpx 
+	print check_cpy 
+	print check_cpz 
+	print check_b1x 
+	print check_b1y 
+	print check_b1z 
+	print check_b1x 
+	print check_b1y 
+	print check_b1z 
+	print check_dis_b1c 
+	print check_dis_b2c 
+	end_command
+end
+
+
+

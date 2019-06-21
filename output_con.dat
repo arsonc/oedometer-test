@@ -1,0 +1,57 @@
+def output_con
+
+array ball1(30000)
+array ball2(30000)
+array normal(30000)
+
+cp = contact_head
+ii = 0
+loop while cp # null
+	address_1_wp = c_ball1( cp )
+	address_2_wp = c_ball2( cp )	
+	entity_type_1 = pointer_type(address_1_wp)
+	entity_type_2 = pointer_type(address_2_wp)
+	entity_type_tot = entity_type_1 + entity_type_2
+	
+	if entity_type_tot=200
+		ball1(ii+1) = string(b_id(address_1_wp))
+		ball2(ii+1)= string(b_id(address_2_wp))
+		normal(ii+1) = string(c_nforce(cp))
+		ii=ii+1
+	end_if
+
+	cp = c_next(cp)
+end_loop
+
+
+status=open('ball1.txt', 1, 1)
+status=write(ball1, ii )
+status=close
+
+status=open('ball2.txt', 1, 1)
+status=write(ball2, ii )
+status=close
+
+status=open('normal.txt', 1, 1)
+status=write(normal, ii )
+status=close
+
+end
+
+;------------------------------------------------------------------
+def output_radius
+array ball_rad(50000)
+ii = 0
+bp = ball_head
+loop while bp # null
+	ii = ii + 1
+	temp_radius = b_rad(bp)
+	ball_rad(ii) = string(temp_radius)
+	bp = b_next(bp)
+end_loop
+
+status=open('ball_rad.txt', 1, 1)
+status=write(ball_rad, ii )
+status=close
+
+end

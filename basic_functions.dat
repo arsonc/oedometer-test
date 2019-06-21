@@ -1,0 +1,276 @@
+def ball_number ;Total ball number ; total number of balls
+	idmax = 0
+	bp = ball_head
+	loop while bp # null
+		idmax = idmax + 1
+		bp = b_next(bp)
+	end_loop
+end
+;-----------------------------------------------------------------
+def sample_volume
+
+bp =  ball_head
+vol_total = 0.0
+loop while bp # null
+	vol_total = vol_total + 4.0/3.0*pi*(b_rad(bp))^3
+	bp = b_next(bp)
+end_loop
+s_volume(1) = string( vol_total )
+end
+
+def volume_output
+	status=open('sample_volume.txt', 1, 1)
+	status=write( s_volume , 1)
+	status=close
+end
+;-----------------------------------------------------------------
+def change_ctype
+	cp = fc_arg(0)
+	c_model( cp ) = 'hertz'
+end
+;-----------------------------------------------------------------
+def cluster_detection
+	cluster_count = 1
+	bp = ball_head
+	loop while bp # null
+		if b_extra( bp, 2 ) = 0
+			;b_extra( bp, 2 ) = cluster_count
+			current_cluster
+			cluster_count = cluster_count + 1
+		end_if
+		bp = b_next(bp)
+	end_loop
+end
+;-----------------------------------------------------------------
+def current_cluster
+	;this function is to find clusters.
+	;good when there is one ball which is larger than others in the cluster
+	center_ball = bp
+	current_radius = b_rad(center_ball)
+	cp = b_clist( center_ball )
+	loop while cp # null
+		if c_ball1(cp) = center_ball then  ; find bp_other, the adjoining ball
+		  bp_other = c_ball2(cp)
+		else
+		  bp_other = c_ball1(cp)
+		end_if
+		if c_pb( cp ) # null ;parallel bond exist
+			other_radius = b_rad(bp_other)
+			if other_radius > current_radius
+				center_ball = bp_other
+			end_if
+		end_if
+		
+		if c_ball1(cp) = bp then  ; determine which linked-list to follow
+		  cp = c_b1clist(cp)      ; choose the one that surrounds bp
+		else
+		  cp = c_b2clist(cp)
+		end_if
+	end_loop
+	b_extra( center_ball, 2 ) = cluster_count
+	cluster_size = 1
+    cp = b_clist( center_ball )     ; header of linked-list of contacts around bp
+	loop while cp # null
+		if c_ball1(cp) = center_ball then  ; find bp_other, the adjoining ball
+		  bp_other = c_ball2(cp)
+		else
+		  bp_other = c_ball1(cp)
+		end_if
+		if c_pb( cp ) # null ;parallel bond exist
+			b_extra( bp_other, 2 ) = cluster_count
+			cluster_size = cluster_size + 1
+		end_if
+		;
+		if c_ball1(cp) = center_ball then  ; determine which linked-list to follow
+		  cp = c_b1clist(cp)      ; choose the one that surrounds bp
+		else
+		  cp = c_b2clist(cp)
+		end_if
+	end_loop
+	b_extra( center_ball, 3 ) = cluster_size
+	b_extra( center_ball, 4 ) = b_rad(center_ball)
+end
+;-----------------------------------------------------------------
+def current_cluster2
+	bp = ball_head
+	loop while bp # null
+		b_extra( bp, 2 ) = 0
+		b_extra( bp, 3 ) = 0
+		b_extra( bp, 4 ) = b_rad( bp )
+		bp = b_next(bp)
+	end_loop
+
+	cluster_id = 1	
+	bp = ball_head
+	loop while bp # null
+		if b_extra(bp,2) = 0
+			b_extra( bp, 2 ) = cluster_id
+			center_ball =  b_id( bp )
+			cluster_size = 1
+			a_current_cluster(cluster_size) = center_ball
+			command
+				pbond_connection
+			end_command
+			;ii = out(string(cluster_size))
+			counter = 2
+			loop while counter <=cluster_size
+				ii=out(string(counter)+' '+string(cluster_size))
+				center_ball = a_current_cluster( counter  )
+				command
+					pbond_connection
+				end_command
+				counter = counter + 1
+			end_loop
+			cluster_id = cluster_id+1
+		end_if
+		bp = b_next(bp)
+	end_loop
+
+end
+
+def pbond_connection
+	bp_center = find_ball(center_ball)
+	cp = b_clist( bp_center )     ; header of linked-list of contacts around bp
+	loop while cp # null
+		if c_ball1(cp) = bp_center then  ; find bp_other, the adjoining ball
+		  bp_other = c_ball2(cp)
+		else
+		  bp_other = c_ball1(cp)
+		end_if
+		if c_pb( cp ) # null ;parallel bond exist
+			
+			if b_extra(bp_other,2) = 0
+				b_extra( bp_other, 2 ) = cluster_id
+				cluster_size = cluster_size + 1
+				a_current_cluster(cluster_size) = b_id( bp_other )
+			end_if
+		end_if
+		;
+		if c_ball1(cp) = bp_center then  ; determine which linked-list to follow
+		  cp = c_b1clist(cp)      ; choose the one that surrounds bp
+		else
+		  cp = c_b2clist(cp)
+		end_if
+	end_loop
+end
+
+def cluster_output_ini
+	bp = ball_head
+	counter = 0
+	loop while bp # null
+		counter = counter+ 1
+		a_cluster_out(counter) = string(string(b_id(bp))+' '+string(b_extra(bp,2))+' '+string(b_extra(bp,4))+' '+string(b_extra(bp,5))+' '+string(b_x(bp))+' '+string(b_y(bp))+' '+string(b_z(bp)) )
+		bp = b_next(bp)
+	end_loop
+	status=open('cluster_out_ini.txt', 1, 1)
+	status=write(a_cluster_out, counter  )
+	status=close
+end
+
+def cluster_output_strain
+	bp = ball_head
+	counter = 0
+	loop while bp # null
+		counter = counter+ 1
+		a_cluster_out(counter) = string(string(b_id(bp))+' '+string(b_extra(bp,2))+' '+string(b_extra(bp,4))+' '+string(b_extra(bp,5))+' '+string(b_x(bp))+' '+string(b_y(bp))+' '+string(b_z(bp)) )
+		bp = b_next(bp)
+	end_loop
+	status=open('cluster_out_ini_'+string(file_name_scanlevel)+'.txt', 1, 1)
+	status=write(a_cluster_out, counter  )
+	status=close
+end
+
+
+def cluster_output_end
+	bp = ball_head
+	counter = 0
+	loop while bp # null
+		counter = counter+ 1
+		a_cluster_out(counter) = string(string(b_id(bp))+' '+string(b_extra(bp,2))+' '+string(b_extra(bp,4))+' '+string(b_extra(bp,5))+' '+string(b_x(bp))+' '+string(b_y(bp))+' '+string(b_z(bp)) )
+		bp = b_next(bp)
+	end_loop
+	status=open('cluster_out_end.txt', 1, 1)
+	status=write(a_cluster_out, counter  )
+	status=close
+end
+;-----------------------------------------------------------------
+def PSD_output_strain
+	WHILESTEPPING
+	PSD_output_strain_cycle = PSD_output_strain_cycle +1
+	if PSD_output_strain_cycle >500
+		temp_strain_disp = compression_disp - above_top_platen 
+		if strain_output1 = 0
+			if temp_strain_disp > 0 ;make sure in compression status
+				strain_current = temp_strain_disp /exp_sample_height;
+				if strain_current > strain_level1 
+					strain_current = strain_level1
+					strain_output1 = 1
+					file_name_scanlevel = strain_output1
+					command
+						current_cluster2
+						cluster_output_strain
+					end_command
+				end_if
+			end_if
+		end_if
+
+		if strain_output2 = 0
+			if temp_strain_disp > 0 ;make sure in compression status
+				strain_current = temp_strain_disp /exp_sample_height;
+				if strain_current > strain_level2
+					strain_current = strain_level2
+					strain_output2 = 2
+					file_name_scanlevel = strain_output2 
+					command
+						current_cluster2
+						cluster_output_strain
+					end_command
+				end_if
+			end_if
+		end_if
+	
+		if strain_output3 = 0
+			if temp_strain_disp > 0 ;make sure in compression status
+				strain_current = temp_strain_disp /exp_sample_height;
+				if strain_current > strain_level3
+					strain_current = strain_level3
+					strain_output3 = 3
+					file_name_scanlevel = strain_output3 
+					command
+						current_cluster2
+						cluster_output_strain
+					end_command
+				end_if
+			end_if
+		end_if
+		PSD_output_strain_cycle = 0
+	end_if
+end
+;-----------------------------------------------------------------
+def bp_broken_count
+	pbbreak_count_ii = pbbreak_count_ii +1
+
+end
+
+;-----------------------------------------------------------------
+def average_cn
+	idmax = 0.0
+	bp = ball_head
+	loop while bp # null
+		idmax = idmax + 1
+		bp = b_next(bp)
+	end_loop
+	ii= out('Total number of ball is '+string(idmax))
+	
+	cp = contact_head
+	cn_number = 0.0
+	loop while cp # null
+		cn_number = cn_number +1
+		cp = c_next(cp)
+	end_loop
+	ii= out('Total number of contact is '+string( cn_number ))
+	average_cn_wp = 1.0*cn_number /idmax 
+	ii= out('Average CN is '+string( average_cn_wp ))
+	
+
+end

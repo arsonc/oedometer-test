@@ -1,0 +1,73 @@
+def	contact_test; make all walls just in touch with the ball
+
+ini_ctest_cycle = cycle
+ini_ctest_time = time
+loading_wall = find_wall(5)
+ctest_speed = w_zvel( loading_wall )
+
+loop m (1,1000000);maxium step is 1e6
+
+	wall_numwp=wall_head
+	loop while wall_numwp # null
+		
+		wall_forcewp=sqrt(w_xfob(wall_numwp)^2+w_yfob(wall_numwp)^2+w_zfob(wall_numwp)^2);get the unballenced force
+		
+		if wall_forcewp>1e-8
+		
+			w_vvel(wall_numwp,1)=0.0;speed of the wall
+			w_vvel(wall_numwp,2)=0.0
+			w_vvel(wall_numwp,3)=0.0
+		end_if
+		wall_numwp=w_next(wall_numwp)
+	end_loop
+
+command	
+	cycle 1
+end_command
+	ii = out(string(tdel))
+	distance_ctest = distance_ctest + abs( ctest_speed )* tdel
+
+	wall_sumv=0
+	wall_numwp2=wall_head
+	
+	loop while wall_numwp2 # null
+		wall_sumv=wall_sumv + sqrt(w_xvel(wall_numwp2)^2+w_yvel(wall_numwp2)^2+w_zvel(wall_numwp2)^2)
+		wall_numwp2=w_next(wall_numwp2)
+	end_loop
+	
+	if wall_sumv<1e-12
+		end_ctest_cycle = cycle
+		total_distance = distance_ctest
+		;distance_ctest = abs( ctest_speed )*(end_ctest_cycle -ini_ctest_cycle )
+		;distance_ctest = abs( ctest_speed )*(end_ctest_time - ini_ctest_time )/100
+		exit
+	end_if
+end_loop
+end
+;--------------------------------------
+def reach_to_exp_height
+	reach_distance = distance_ctest
+	loading_wall = find_wall(5)
+	r_speed = w_zvel( loading_wall )
+	
+	if r_speed = 0.0
+		w_zvel( loading_wall ) = ctest_speed
+		r_speed = ctest_speed
+	end_if
+
+	loop mm (1,1000000);maxium step is 1e6
+		current_sample_height = abs(box_height1-box_height2) - reach_distance
+		if current_sample_height > exp_sample_height
+			command
+				cycle 1
+			end_command
+			reach_distance = reach_distance + abs(r_speed)*tdel
+		else
+			w_zvel( loading_wall ) = 0.0
+			total_distance = reach_distance
+			ii = out('total distance is '+string(total_distance))
+			exit
+		end_if
+	end_loop
+end
+		

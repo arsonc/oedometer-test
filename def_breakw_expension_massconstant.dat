@@ -1,0 +1,1148 @@
+def breakage_check
+;	maximum contact force
+bp = ball_head
+
+current_total=0
+first_new_ball = newball_start_id
+new_gen_cluster = 0
+new_gen_clump = 0
+breakage_type = 18; each side has 1 big and 8 small
+failure_criterion = 1; criterion maximum contact force. 1. cross product fmax&sigma3 to find direction2 ; 2. corss product fmax&direction2 to be orthogonal
+;breakge type = 4; 
+eve_maxcforce = 0;
+loop while bp # null
+	current_total=current_total+1
+	bnext = b_next(bp)
+	stress_tensor 			; get stress tensor 
+	if check_float # 0
+		f_maxcforce			; find the max normal contact force
+		if b_maxcforce> eve_maxcforce
+			eve_maxcforce=b_maxcforce
+		end_if
+		
+		f_maxcforce_failure	; compare the threshold
+		if testfail_maxcforce = 1
+			principal_direction
+			f_replacemethod
+		end_if
+	end_if
+	
+;	if flag_3d_iso # 1			; not in instropic states
+;		if check_float # 0
+;			tensile_failure			; check failure criterion	
+;		end_if	
+;	end_if
+	
+	if check_stress =1
+		;exit
+	end_if
+	bp = bnext
+endloop
+p1_ave=p1_ave/current_total
+p2_ave=p2_ave/current_total
+p3_ave=p3_ave/current_total
+;last_new_ball = newball_start_id-1
+end
+;-----------------------------------------------------------------
+;-----------------------------------------------------------------
+;-----------------------------------------------------------------
+;-----------------------------------------------------------------
+def stress_tensor
+	current_id = b_id(bp)
+	;ii = out('id is'+string(current_id))
+	loop ww (1,3)
+		loop pp(1,3)
+			stress_b(ww,pp) = 0.0
+		endloop
+		principal(ww) = 0.0
+	endloop
+	invariant_1 = 0.0
+	invariant_2 = 0.0
+	invariant_3 = 0.0
+
+	;>>>>>>>>>>>>>>>start:make the matrix symmetric
+	ii = b_stress(bp,stress_b)
+	loop ww (1,3)
+		loop pp(ww,3)
+			stress_b(ww,pp) = ( stress_b(ww,pp) + stress_b(pp,ww) )/2.0
+			stress_b(pp,ww) = stress_b(ww,pp) ;make it symmetric		
+		end_loop
+	end_loop	
+	;<<<<<<<<<<<<<<<end:make the matrix symmetric
+
+	check_float = 0.0	;avoid the situation of totally floating particles
+	loop ww (1,3)
+		loop pp(1,3)
+		
+		check_float = check_float + abs(stress_b(ww,pp))
+		
+		endloop
+	endloop
+	
+	if check_float > 1e-3 ; avoid the situation of totally floating particles
+		; see: https://en.wikiversity.org/wiki/Principal_stresses
+		invariant_1 = stress_b(1,1)+stress_b(2,2) +stress_b(3,3)
+		invariant_2 = stress_b(1,1)*stress_b(2,2) + stress_b(2,2)*stress_b(3,3) + stress_b(3,3)*stress_b(1,1) - stress_b(1,2)^2-stress_b(2,3)^2-stress_b(3,1)^2
+		invariant_3 = stress_b(1,1)*stress_b(2,2)*stress_b(3,3) - stress_b(1,1)*stress_b(2,3)^2-stress_b(2,2)*stress_b(3,1)^2-stress_b(3,3)*stress_b(1,2)^2+2*stress_b(1,2)*stress_b(2,3)*stress_b(3,1)
+		para_phi_part1 = (2.0*invariant_1^3-9*invariant_1*invariant_2+27.0*invariant_3)/2/(invariant_1^2-3*invariant_2)^(3.0/2) ; has to use 3.0, not 3!!!
+		if (1 - para_phi_part1^2) > 1.0e-6 ;calculate the pramater phi
+			para_phi = 1.0/3*2*atan(sqrt(1-para_phi_part1^2)/(1+para_phi_part1))
+
+		else
+			if para_phi_part1 <0
+				para_phi = pi
+			else
+				para_phi = 0.0
+			end_if
+		end_if
+
+		temp_array1(1) = invariant_1/3.0 + 2.0/3*sqrt(invariant_1^2-3.0*invariant_2)*cos(para_phi) 
+		temp_array1(2) = invariant_1/3.0 + 2.0/3*sqrt(invariant_1^2-3.0*invariant_2)*cos(para_phi - 2.0*pi/3)
+		temp_array1(3) = invariant_1/3.0 + 2.0/3*sqrt(invariant_1^2-3.0*invariant_2)*cos(para_phi - 4.0*pi/3)
+		
+		loop ww(1,3)	;sort. principal stress, p(1)<=p(2)<=p(3)
+			loop pp(ww,3)
+				if temp_array1(ww) > temp_array1(pp)
+					temp_change = temp_array1(pp)
+					temp_array1(pp) = temp_array1(ww)
+					temp_array1(ww) = temp_change
+				end_if
+			end_loop
+			principal(ww)=temp_array1(ww)				
+		end_loop
+		if principal(1)>principal(2)
+			ii = out('error! principal sequence error 1!')
+			check_stress = 1
+			;exit
+		end_if
+		if principal(1)>principal(3)
+			ii = out('error! principal sequence error 1!')
+			check_stress = 1
+			;exit
+		end_if
+		if principal(2)>principal(3)
+			ii = out('error! principal sequence error 1!')
+			check_stress = 1
+			;exit			
+		end_if
+	
+		p1_ave = p1_ave+principal(1)
+		p2_ave = p2_ave+principal(2)
+		p3_ave = p3_ave+principal(3)
+		
+		;principal_direction		; the function to calculate the principal direction			
+	end_if
+end
+;-----------------------------------------------------------------
+;-----------------------------------------------------------------
+;-----------------------------------------------------------------
+;-----------------------------------------------------------------
+def f_maxcforce
+	cp = b_clist( bp )     ; header of linked-list of contacts around bp
+	b_maxcforce = 0;
+	b_maxcforce_x = 0.0
+	b_maxcforce_y = 0.0
+	b_maxcforce_z = 0.0
+	loop while cp # null
+		if c_ball1(cp) = bp then  ; find bp_other, the adjoining ball
+			bp_other = c_ball2(cp)
+		else
+			bp_other = c_ball1(cp)
+		end_if
+		
+		if c_nforce(cp) > b_maxcforce 	;normal force in contact model; positive value denotes compression
+			b_maxcforce = c_nforce(cp)
+			b_maxcforce_x = c_xun( cp )
+			b_maxcforce_y = c_yun( cp )
+			b_maxcforce_z = c_zun( cp )
+		end_if
+
+		if c_ball1(cp) = bp then	; determine which linked-list to follow
+			cp = c_b1clist(cp)      ; choose the one that surrounds bp
+		else
+			cp = c_b2clist(cp)
+		end_if
+	end_loop
+	b_maxcforce = b_maxcforce/(b_rad(bp)*2.0)^2 ;Unit: Pa
+	;ii=out('maxforce'+string(b_maxcforce))
+end
+;-----------------------------------------------------------------
+;-----------------------------------------------------------------
+;-----------------------------------------------------------------
+;-----------------------------------------------------------------
+def f_maxcforce_failure
+	testfail_maxcforce=0	; 0 doesn't fail; 1 fail
+	radius_current = b_rad(bp)
+	if b_maxcforce > b_extra(bp,1)
+			testfail_maxcforce = 1;
+	end_if
+end
+;-----------------------------------------------------------------
+;-----------------------------------------------------------------
+;-----------------------------------------------------------------
+;-----------------------------------------------------------------
+
+def principal_direction
+; this function is to calculate the principal direction of principal stress
+	loop ww (1,3)
+		loop pp(1,3)
+			matrix_A(ww,pp) = stress_b(ww,pp)
+		endloop
+		eigenvalue(ww) = principal(ww)
+	endloop
+	first_column0 = 0
+	second_column0 = 0
+	flag_3d_iso = 0
+	flag_2d_12 = 0
+	flag_2d_23 = 0
+	flag_2d = 0
+	
+	check_iso_3d = abs(eigenvalue(1)-eigenvalue(2))+abs(eigenvalue(2)-eigenvalue(3))+abs(eigenvalue(3)-eigenvalue(1))
+	check_iso_2d1 = abs(eigenvalue(1)-eigenvalue(2))
+	check_iso_2d3 = abs(eigenvalue(2)-eigenvalue(3))
+
+	if check_iso_3d <1e-5
+		flag_3d_iso = 1
+		loop ii(1,3)
+			loop jj(1,3)			
+				eigenvector(ii,jj) = 0
+			end_loop
+			eigenvector(ii,ii) = 1
+		end_loop		
+		exit						; the principal direction is 1 0 0; 0 1 0; 0 0 1
+	end_if
+	
+	if check_iso_2d1 <1e-5
+		flag_2d_12 = 1
+	end_if
+
+	if check_iso_2d3 <1e-5
+		flag_2d_23 = 1
+	end_if
+	flag_2d = flag_2d_12+flag_2d_23
+	
+;starts to calculate eigenvector
+
+
+;--------------------------------------------------start: only in 3 different eigenvectors
+if flag_2d = 0     ; 3 different eigenvectors
+
+	loop ww (1,3)
+		loop ii(1,3)
+			loop jj(1,3)
+				matrix_B(ii,jj) = matrix_A(ii,jj)
+			endloop
+			matrix_B(ii,ii) = matrix_B(ii,ii)-eigenvalue(ww)
+		endloop
+		if abs(matrix_B(1,1)) <1e-6  ;change line if B_11 is 0
+			;ii=out('B_11 is 0. Change line')
+			;if matrix_B(2,1) # 0
+			if abs(matrix_B(2,1))>1e-6
+				line_change1 = matrix_B(1,1)
+				line_change2 = matrix_B(1,2)
+				line_change3 = matrix_B(1,3)
+				
+				matrix_B(1,1) = matrix_B(2,1)
+				matrix_B(1,2) = matrix_B(2,2)
+				matrix_B(1,3) = matrix_B(2,3)
+				
+				matrix_B(2,1) = line_change1
+				matrix_B(2,2) = line_change2
+				matrix_B(2,3) = line_change3
+			else 
+				;if matrix_B(3,1) # 0
+				if abs(matrix_B(3,1))>1e-6
+					line_change1 = matrix_B(1,1)
+					line_change2 = matrix_B(1,2)
+					line_change3 = matrix_B(1,3)
+				
+					matrix_B(1,1) = matrix_B(3,1)
+					matrix_B(1,2) = matrix_B(3,2)
+					matrix_B(1,3) = matrix_B(3,3)
+				
+					matrix_B(3,1) = line_change1
+					matrix_B(3,2) = line_change2
+					matrix_B(3,3) = line_change3
+				else
+					first_column0 = 1			; 3D changes to 2D. 
+				end_if
+			end_if
+		end_if
+		
+;elimination 1. Nothing need to do with first_column0=1		
+		if first_column0 = 0				
+			loop ii(2,3)
+				ratio=matrix_B(ii,1)/matrix_B(1,1)
+				loop jj(1,3)
+					matrix_B(ii,jj) = matrix_B(ii,jj)-ratio*matrix_B(1,jj)
+				endloop
+			endloop
+		end_if
+
+;elimination 2
+		;if matrix_B(2,2) = 0
+		if abs(matrix_B(2,2))<1e-6
+			;ii=out('B_22 is 0. Change line')
+			;if matrix_B(3,2) # 0
+			if abs(matrix_B(3,2))>1e-6
+				;ii=out('B_32 is'+string(matrix_B(3,2)))
+				line_change1 = matrix_B(2,2)
+				line_change2 = matrix_B(2,3)
+			
+				matrix_B(2,2) = matrix_B(3,2)
+				matrix_B(2,3) = matrix_B(3,3)
+			
+				matrix_B(3,2) = line_change1
+				matrix_B(3,3) = line_change2
+			else
+				second_column0 = 1
+			end_if
+		end_if
+		
+		if second_column0 = 0
+			ratio = matrix_B(3,2)/matrix_B(2,2)
+			matrix_B(3,2) = matrix_B(3,2)-ratio*matrix_B(2,2)
+			matrix_B(3,3) = matrix_B(3,3)-ratio*matrix_B(2,3)
+		end_if
+		
+
+		
+		if first_column0 = 0		; B_11 is not zero 
+			if second_column0 = 0	; B_22 is not zero. The most common situation
+				eigenvector(3,ww) = 1 
+				eigenvector(2,ww) = -matrix_B(2,3)*eigenvector(3,ww)/matrix_B(2,2)
+				eigenvector(1,ww) = (-matrix_B(1,3)*eigenvector(3,ww)-matrix_B(1,2)*eigenvector(2,ww))/matrix_B(1,1)
+				
+				if abs(matrix_B(3,3)) > 1e-6
+					ii = out('warning! unbalance force is large!matrix_B(3,3)')
+					if abs(matrix_B(3,3)) > 1e-2
+						ii = out('warning! only zero solution!')
+						;this is due to the definition of accuracy in the algorithm
+					end_if
+				endif
+						
+			else					
+				; x x x
+				; 0 0 x
+				; 0 0 x
+				eigenvector(3,ww) = 0
+				eigenvector(2,ww) = 1
+				eigenvector(1,ww) = -matrix_B(1,2)*eigenvector(2,ww)/matrix_B(1,1)
+			end_if
+		end_if
+		
+		if first_column0 = 1
+				eigenvector(3,ww) = 0
+				eigenvector(2,ww) = 0
+				eigenvector(1,ww) = 1
+		end_if
+	end_loop
+end_if
+;--------------------------------------------------end: only in 3 different eigenvectors
+;--------------------------------------------------start: only in 2 different eigenvectors
+if flag_2d # 0
+	if flag_2d > 1
+		ii= out('error: flag_2d is'+string(flag_2d))
+	end_if
+	
+if flag_2d_12 = 1
+		loop ii(1,3)
+			loop jj(1,3)
+				matrix_B(ii,jj) = matrix_A(ii,jj)
+			endloop
+			matrix_B(ii,ii) = matrix_B(ii,ii)-eigenvalue(3)			;the eigen matrix for eigenvalue 3
+		endloop
+		
+		loop ii(1,3)
+			loop jj(1,3)
+				matrix_B2(ii,jj) = matrix_A(ii,jj)
+			endloop
+			matrix_B2(ii,ii) = matrix_B2(ii,ii)-eigenvalue(1)		;the eigen matrix for eigenvalue 1 and 2
+		endloop
+		
+		;if matrix_B(1,1) = 0  ;change line if B_11 is 0
+		if abs(matrix_B(1,1)) <1e-6 
+			;ii=out('B_11 is 0. Change line')
+			;if matrix_B(2,1) # 0
+			if abs(matrix_B(2,1))>1e-6
+				line_change1 = matrix_B(1,1)
+				line_change2 = matrix_B(1,2)
+				line_change3 = matrix_B(1,3)
+				
+				matrix_B(1,1) = matrix_B(2,1)
+				matrix_B(1,2) = matrix_B(2,2)
+				matrix_B(1,3) = matrix_B(2,3)
+				
+				matrix_B(2,1) = line_change1
+				matrix_B(2,2) = line_change2
+				matrix_B(2,3) = line_change3
+			else 
+				;if matrix_B(3,1) # 0
+				if abs(matrix_B(3,1))>1e-6
+					line_change1 = matrix_B(1,1)
+					line_change2 = matrix_B(1,2)
+					line_change3 = matrix_B(1,3)
+				
+					matrix_B(1,1) = matrix_B(3,1)
+					matrix_B(1,2) = matrix_B(3,2)
+					matrix_B(1,3) = matrix_B(3,3)
+				
+					matrix_B(3,1) = line_change1
+					matrix_B(3,2) = line_change2
+					matrix_B(3,3) = line_change3
+				else
+					first_column0 = 1			; 3D changes to 2D. 
+				end_if
+			end_if
+		end_if
+		
+;elimination 1. Nothing need to do with first_column0=1		
+		if first_column0 = 0				
+			loop ii(2,3)
+				ratio=matrix_B(ii,1)/matrix_B(1,1)
+				loop jj(1,3)
+					matrix_B(ii,jj) = matrix_B(ii,jj)-ratio*matrix_B(1,jj)
+				endloop
+			endloop
+		end_if
+
+;elimination 2
+		;if matrix_B(2,2) = 0
+		if abs(matrix_B(2,2))<1e-6
+			;ii=out('B_22 is 0. Change line')
+			;if matrix_B(3,2) # 0 
+			if abs(matrix_B(3,2))>1e-6
+				line_change1 = matrix_B(2,2)
+				line_change2 = matrix_B(2,3)
+			
+				matrix_B(2,2) = matrix_B(3,2)
+				matrix_B(2,3) = matrix_B(3,3)
+			
+				matrix_B(3,2) = line_change1
+				matrix_B(3,3) = line_change2
+			else
+				second_column0 = 1
+			end_if
+		end_if
+		
+		if second_column0 = 0
+			ratio = matrix_B(3,2)/matrix_B(2,2)
+			matrix_B(3,2) = matrix_B(3,2)-ratio*matrix_B(2,2)
+			matrix_B(3,3) = matrix_B(3,3)-ratio*matrix_B(2,3)
+		end_if
+		
+		if abs(matrix_B(3,3)) > 1e-6
+			ii = out('warning! unbalance force is large!matrix_B(3,3)')
+			;output_stress
+			check_stress = 1
+			;exit
+			
+			if abs(matrix_B(3,3)) > 1e-2
+				ii = out('warning! only zero solution!matrix_B(3,3)>1e-2')
+			end_if
+		endif
+		
+		if first_column0 = 0		; B_11 is not zero 
+			if second_column0 = 0	; B_22 is not zero. The most common situation
+				eigenvector(3,3) = 1 
+				eigenvector(2,3) = -matrix_B(2,3)*eigenvector(3,3)/matrix_B(2,2)
+				eigenvector(1,3) = (-matrix_B(1,3)*eigenvector(3,3)-matrix_B(1,2)*eigenvector(2,3))/matrix_B(1,1)
+			else					
+				eigenvector(3,3) = 0
+				eigenvector(2,3) = 1
+				eigenvector(1,3) = -matrix_B(1,2)*eigenvector(2,3)/matrix_B(1,1)
+			end_if
+		end_if
+		
+		if first_column0 = 1
+				eigenvector(3,3) = 0
+				eigenvector(2,3) = 0
+				eigenvector(1,3) = 1
+		end_if
+		
+; the following the for the eigenvalue with 2 vectors		
+		;if matrix_B2(1,1) = 0  ;change line if B_11 is 0
+		if abs(matrix_B2(1,1))<1e-6
+			;ii=out('B2_11 is 0. Change line')
+			;if matrix_B2(2,1) # 0
+			if abs(matrix_B2(2,1))>1e-6
+				line_change1 = matrix_B2(1,1)
+				line_change2 = matrix_B2(1,2)
+				line_change3 = matrix_B2(1,3)
+				
+				matrix_B2(1,1) = matrix_B2(2,1)
+				matrix_B2(1,2) = matrix_B2(2,2)
+				matrix_B2(1,3) = matrix_B2(2,3)
+				
+				matrix_B2(2,1) = line_change1
+				matrix_B2(2,2) = line_change2
+				matrix_B2(2,3) = line_change3
+			else 
+				;if matrix_B(3,1) # 0
+				if abs(matrix_B2(3,1))>1e-6
+					line_change1 = matrix_B2(1,1)
+					line_change2 = matrix_B2(1,2)
+					line_change3 = matrix_B2(1,3)
+				
+					matrix_B2(1,1) = matrix_B2(3,1)
+					matrix_B2(1,2) = matrix_B2(3,2)
+					matrix_B2(1,3) = matrix_B2(3,3)
+				
+					matrix_B2(3,1) = line_change1
+					matrix_B2(3,2) = line_change2
+					matrix_B2(3,3) = line_change3
+				else
+					first_column0 = 1			; 3D changes to 2D. 
+				end_if
+			end_if
+		end_if
+		
+;elimination 1. Nothing need to do with first_column0=1		
+		if first_column0 = 0				
+			loop ii(2,3)
+				ratio=matrix_B2(ii,1)/matrix_B2(1,1)
+				loop jj(1,3)
+					matrix_B2(ii,jj) = matrix_B2(ii,jj)-ratio*matrix_B2(1,jj)
+				endloop
+			endloop
+		end_if
+
+;elimination 2
+		;if matrix_B2(2,2) = 0
+		if abs(matrix_B2(2,2))<1e-6
+			;ii=out('B2_22 is 0. Change line')
+			;if matrix_B2(3,2) # 0 
+			if abs(matrix_B2(3,2))>1e-6
+				line_change1 = matrix_B2(2,2)
+				line_change2 = matrix_B2(2,3)
+			
+				matrix_B2(2,2) = matrix_B2(3,2)
+				matrix_B2(2,3) = matrix_B2(3,3)
+			
+				matrix_B2(3,2) = line_change1
+				matrix_B2(3,3) = line_change2
+			else
+				second_column0 = 1
+			end_if
+		end_if
+		
+		if second_column0 = 0
+			ratio = matrix_B2(3,2)/matrix_B2(2,2)
+			matrix_B2(3,2) = matrix_B2(3,2)-ratio*matrix_B2(2,2)
+			matrix_B2(3,3) = matrix_B2(3,3)-ratio*matrix_B2(2,3)
+		end_if
+		
+	
+		
+		
+		if first_column0 = 0		; B_11 is not zero 
+				;x x x
+				;0 0 0 
+				;0 0 0
+				eigenvector(3,1) = 1 
+				eigenvector(2,1) = 0
+				eigenvector(1,1) = -matrix_B2(1,3)*eigenvector(3,1)/matrix_B2(1,1)
+				
+				eigenvector(3,2) = 0 
+				eigenvector(2,2) = 1
+				eigenvector(1,2) = -matrix_B2(1,2)*eigenvector(2,2)/matrix_B2(1,1)
+				
+				total_error = abs(matrix_B2(2,1))+abs(matrix_B2(2,2))+abs(matrix_B2(2,3))+abs(matrix_B2(3,1))+abs(matrix_B2(3,2))+abs(matrix_B2(3,3))
+				if total_error>1e-6
+					ii = out('warning! unbalance force is large!total_error flag_2d_12 =1')
+					;output_stress
+					if total_error > 1e-2
+						ii = out('error! only zero solution!')
+						;output_stress
+						check_stress = 1
+						;exit
+					end_if
+				end_if
+		else
+			if second_column0 = 0
+				eigenvector(3,1) = 0 
+				eigenvector(2,1) = 0
+				eigenvector(1,1) = 1
+				
+				eigenvector(3,2) = 1
+				eigenvector(2,2) = -matrix_B2(2,3)/matrix_B2(2,2)
+				eigenvector(1,2) = 0
+				
+				total_error = abs(matrix_B2(1,1))+abs(matrix_B2(1,2))+abs(matrix_B2(1,3))+abs(matrix_B2(3,1))+abs(matrix_B2(3,2))+abs(matrix_B2(3,3))
+				if total_error>1e-6
+					ii = out('warning! unbalance force is large!total_error flag_2d_12 =1')
+					;output_stress
+					if total_error > 1e-2
+						ii = out('error! only zero solution!')
+						;output_stress
+						check_stress = 1
+						;exit
+					end_if
+				end_if
+				
+			else
+				if matrix_B2(1,2) = 0
+		
+					eigenvector(3,1) = 0		; 0 0 x
+					eigenvector(2,1) = 1		; 0 0 x
+					eigenvector(1,1) = 0		; 0	0 x
+				
+					eigenvector(3,2) = 0
+					eigenvector(2,2) = 0
+					eigenvector(1,2) = 1
+					total_error = abs(matrix_B2(1,1))+abs(matrix_B2(1,2))+abs(matrix_B2(1,3))+abs(matrix_B2(3,1))+abs(matrix_B2(3,2))+abs(matrix_B2(3,3))
+					if total_error>1e-6
+						ii = out('warning! unbalance force is large!total_error flag_2d_12 =1')
+						;output_stress
+						if total_error > 1e-2
+							ii = out('error! only zero solution!')
+							;output_stress
+							check_stress = 1
+							;exit
+						end_if
+					end_if
+				
+				else 
+					eigenvector(3,1) = 1 								; 0 x x
+					eigenvector(2,1) = -matrix_B2(1,3)/matrix_B2(1,2)	; 0 0 0 
+					eigenvector(1,1) = 0								; 0 0 0 
+				
+					eigenvector(3,2) = 0
+					eigenvector(2,2) = 0
+					eigenvector(1,2) = 1
+					total_error = abs(matrix_B2(2,1))+abs(matrix_B2(2,2))+abs(matrix_B2(2,3))+abs(matrix_B2(3,1))+abs(matrix_B2(3,2))+abs(matrix_B2(3,3))
+					if total_error>1e-6
+						ii = out('warning! unbalance force is large!total_error flag_2d_12 =1')
+						;output_stress
+						if total_error > 1e-2
+							ii = out('error! only zero solution!')
+							;output_stress
+							check_stress = 1
+							;exit
+						end_if
+					end_if
+				
+				end_if	
+			end_if
+		end_if
+	end_if
+
+if flag_2d_23 = 1
+		loop ii(1,3)
+			loop jj(1,3)
+				matrix_B(ii,jj) = matrix_A(ii,jj)
+			endloop
+			matrix_B(ii,ii) = matrix_B(ii,ii)-eigenvalue(1)			;the eigen matrix for eigenvalue 1 
+		endloop
+		
+		loop ii(1,3)
+			loop jj(1,3)
+				matrix_B2(ii,jj) = matrix_A(ii,jj)
+			endloop
+			matrix_B2(ii,ii) = matrix_B2(ii,ii)-eigenvalue(2)		;the eigen matrix for eigenvalue 2 and 3
+		endloop
+		
+		;if matrix_B(1,1) = 0  ;change line if B_11 is 0
+		if abs(matrix_B(1,1)) <1e-6
+			;ii=out('B_11 is 0. Change line')
+			;if matrix_B(2,1) # 0
+			if abs(matrix_B(2,1))>1e-6
+				line_change1 = matrix_B(1,1)
+				line_change2 = matrix_B(1,2)
+				line_change3 = matrix_B(1,3)
+				
+				matrix_B(1,1) = matrix_B(2,1)
+				matrix_B(1,2) = matrix_B(2,2)
+				matrix_B(1,3) = matrix_B(2,3)
+				
+				matrix_B(2,1) = line_change1
+				matrix_B(2,2) = line_change2
+				matrix_B(2,3) = line_change3
+			else 
+				;if matrix_B(3,1) # 0
+				if abs(matrix_B(3,1))>1e-6
+					line_change1 = matrix_B(1,1)
+					line_change2 = matrix_B(1,2)
+					line_change3 = matrix_B(1,3)
+				
+					matrix_B(1,1) = matrix_B(3,1)
+					matrix_B(1,2) = matrix_B(3,2)
+					matrix_B(1,3) = matrix_B(3,3)
+				
+					matrix_B(3,1) = line_change1
+					matrix_B(3,2) = line_change2
+					matrix_B(3,3) = line_change3
+				else
+					first_column0 = 1			; 3D changes to 2D. 
+				end_if
+			end_if
+		end_if
+		
+;elimination 1. Nothing need to do with first_column0=1		
+		if first_column0 = 0				
+			loop ii(2,3)
+				ratio=matrix_B(ii,1)/matrix_B(1,1)
+				loop jj(1,3)
+					matrix_B(ii,jj) = matrix_B(ii,jj)-ratio*matrix_B(1,jj)
+				endloop
+			endloop
+		end_if
+
+;elimination 2
+		;if matrix_B(2,2) = 0
+		if abs(matrix_B(2,2))<1e-6
+			ii=out('B_22 is 0. Change line')
+			;if matrix_B(3,2) # 0 
+			if abs(matrix_B(3,2))>1e-6
+				line_change1 = matrix_B(2,2)
+				line_change2 = matrix_B(2,3)
+			
+				matrix_B(2,2) = matrix_B(3,2)
+				matrix_B(2,3) = matrix_B(3,3)
+			
+				matrix_B(3,2) = line_change1
+				matrix_B(3,3) = line_change2
+			else
+				second_column0 = 1
+			end_if
+		end_if
+		
+		if second_column0 = 0
+			ratio = matrix_B(3,2)/matrix_B(2,2)
+			matrix_B(3,2) = matrix_B(3,2)-ratio*matrix_B(2,2)
+			matrix_B(3,3) = matrix_B(3,3)-ratio*matrix_B(2,3)
+		end_if
+		
+
+		
+		if first_column0 = 0		; B_11 is not zero 
+			if second_column0 = 0	; B_22 is not zero. The most common situation
+				eigenvector(3,1) = 1 
+				eigenvector(2,1) = -matrix_B(2,3)*eigenvector(3,1)/matrix_B(2,2)
+				eigenvector(1,1) = (-matrix_B(1,3)*eigenvector(3,1)-matrix_B(1,2)*eigenvector(2,1))/matrix_B(1,1)
+				if abs(matrix_B(3,3)) > 1e-6
+					ii = out('warning! unbalance force is large!matrix_B(3,3)>1e-6')
+					;output_stress
+					if abs(matrix_B(3,3)) > 1e-2
+						ii = out('error! only zero solution!')
+						;output_stress
+						check_stress = 1
+						;exit
+					end_if
+				endif
+			else					
+				eigenvector(3,1) = 0
+				eigenvector(2,1) = 1
+				eigenvector(1,1) = -matrix_B(1,2)*eigenvector(2,1)/matrix_B(1,1)
+			end_if
+		end_if
+		
+		if first_column0 = 1
+				eigenvector(3,1) = 0
+				eigenvector(2,1) = 0
+				eigenvector(1,1) = 1
+		end_if
+;----------		
+;!!!!! the following the for the eigenvalue with 2 vectors !!!!!
+		;if matrix_B2(1,1) = 0  ;change line if B_11 is 0
+		if abs(matrix_B2(1,1))<1e-6
+			;ii=out('B2_11 is 0. Change line')
+			;if matrix_B2(2,1) # 0
+			if abs(matrix_B2(2,1))>1e-6
+				line_change1 = matrix_B2(1,1)
+				line_change2 = matrix_B2(1,2)
+				line_change3 = matrix_B2(1,3)
+				
+				matrix_B2(1,1) = matrix_B2(2,1)
+				matrix_B2(1,2) = matrix_B2(2,2)
+				matrix_B2(1,3) = matrix_B2(2,3)
+				
+				matrix_B2(2,1) = line_change1
+				matrix_B2(2,2) = line_change2
+				matrix_B2(2,3) = line_change3
+			else 
+				;if matrix_B2(3,1) # 0
+				if abs(matrix_B2(3,1))>1e-6
+					line_change1 = matrix_B2(1,1)
+					line_change2 = matrix_B2(1,2)
+					line_change3 = matrix_B2(1,3)
+				
+					matrix_B2(1,1) = matrix_B2(3,1)
+					matrix_B2(1,2) = matrix_B2(3,2)
+					matrix_B2(1,3) = matrix_B2(3,3)
+				
+					matrix_B2(3,1) = line_change1
+					matrix_B2(3,2) = line_change2
+					matrix_B2(3,3) = line_change3
+				else
+					first_column0 = 1			; 3D changes to 2D. 
+				end_if
+			end_if
+		end_if
+		
+;elimination 1. Nothing need to do with first_column0=1		
+		if first_column0 = 0				
+			loop ii(2,3)
+				ratio=matrix_B2(ii,1)/matrix_B2(1,1)
+				loop jj(1,3)
+					matrix_B2(ii,jj) = matrix_B2(ii,jj)-ratio*matrix_B2(1,jj)
+				endloop
+			endloop
+		end_if
+
+;elimination 2
+		;if matrix_B2(2,2) = 0
+		if abs(matrix_B2(2,2))<1e-6
+			ii=out('B2_22 is 0. Change line')
+			;if matrix_B2(3,2) # 0 
+			if abs(matrix_B2(3,2))>1e-6
+				line_change1 = matrix_B2(2,2)
+				line_change2 = matrix_B2(2,3)
+			
+				matrix_B2(2,2) = matrix_B2(3,2)
+				matrix_B2(2,3) = matrix_B2(3,3)
+			
+				matrix_B2(3,2) = line_change1
+				matrix_B2(3,3) = line_change2
+			else
+				second_column0 = 1
+			end_if
+		end_if
+		
+		if second_column0 = 0
+			ratio = matrix_B2(3,2)/matrix_B2(2,2)
+			matrix_B2(3,2) = matrix_B2(3,2)-ratio*matrix_B2(2,2)
+			matrix_B2(3,3) = matrix_B2(3,3)-ratio*matrix_B2(2,3)
+		end_if
+		
+		if first_column0 = 0		; B_11 is not zero 
+				eigenvector(3,2) = 1 
+				eigenvector(2,2) = 0
+				eigenvector(1,2) = -matrix_B2(1,3)*eigenvector(3,2)/matrix_B2(1,1)
+				
+				eigenvector(3,3) = 0 
+				eigenvector(2,3) = 1
+				eigenvector(1,3) = -matrix_B2(1,2)*eigenvector(2,3)/matrix_B2(1,1)
+		else
+			if second_column0 = 0
+				eigenvector(3,2) = 0 
+				eigenvector(2,2) = 0
+				eigenvector(1,2) = 1
+				
+				eigenvector(3,3) = 1
+				eigenvector(2,3) = -matrix_B2(2,3)/matrix_B2(2,2)
+				eigenvector(1,3) = 0
+			else
+				if matrix_B2(1,2) = 0
+					eigenvector(3,2) = 0 
+					eigenvector(2,2) = 1
+					eigenvector(1,2) = 0
+				
+					eigenvector(3,3) = 0
+					eigenvector(2,3) = 0
+					eigenvector(1,3) = 1
+				else 
+					eigenvector(3,2) = 1 
+					eigenvector(2,2) = -matrix_B2(1,3)/matrix_B2(1,2)
+					eigenvector(1,2) = 0
+				
+					eigenvector(3,3) = 0
+					eigenvector(2,3) = 0
+					eigenvector(1,3) = 1
+				end_if	
+			end_if
+		end_if
+		
+	end_if
+end_if
+;--------------------------------------------------end: only in 2 different eigenvectors 
+	
+	loop ww(1,3)	;normalization
+			egvtor_mag=sqrt(eigenvector(1,ww)^2+eigenvector(2,ww)^2+eigenvector(3,ww)^2) ; normalize
+			eigenvector(1,ww) = eigenvector(1,ww)/egvtor_mag
+			eigenvector(2,ww) = eigenvector(2,ww)/egvtor_mag
+			eigenvector(3,ww) = eigenvector(3,ww)/egvtor_mag
+	endloop
+
+end
+;-----------------------------------------------------------------
+;-----------------------------------------------------------------
+;-----------------------------------------------------------------
+;-----------------------------------------------------------------
+def tensile_failure
+;-------------------------start: octahedral shear stress
+;	oct_stress=1.0/3*sqrt((principal(1)-principal(2))^2+(principal(2)-principal(3))^2+(principal(1)-principal(3)^2))
+;	ii=out(string(oct_stress))
+
+	radius_current=b_rad(bp)
+	tensile_gen = abs((principal(1)-3.0*principal(3))/2.0)
+;	generated tensile stress. see Tsoungui 1999, Danda Shi et al. 2016,DEM Modeling of Particle Breakage in Silica Sands
+;	and  Ben-Nun,O. and Einav,I.2010
+	radis_limit = 0.014
+	if radius_current < radis_limit
+		exit
+	end_if
+	
+	current_tensile_strength = sqrt( 1.4/radius_current)*ini_tensile_strength
+	if abs(principal(1)) > major_principal_stress
+
+	endif
+	
+end
+;-----------------------------------------------------------------
+;-----------------------------------------------------------------
+;-----------------------------------------------------------------
+;-----------------------------------------------------------------
+
+def f_replacemethod
+		breakage_events =breakage_events +1
+		x_motherball = b_x( bp )
+		y_motherball = b_y( bp )
+		z_motherball = b_z( bp )
+		G_motherball = b_shearmod( bp )
+		poiss_motherball = b_poiss( bp )
+		ii=out(string(b_id(bp))+'is crushed.')
+		;-------------4 particles 		
+		if breakage_type = 4
+			sub1_radius =  radius_current/2.0
+			sub2_radius =  radius_current/3.0
+			sub1_x = x_motherball + sub1_radius*eigenvector(1,3)
+			sub1_y = y_motherball + sub1_radius*eigenvector(2,3)
+			sub1_z = z_motherball + sub1_radius*eigenvector(3,3)
+			sub2_x = x_motherball - sub1_radius*eigenvector(1,3)
+			sub2_y = y_motherball - sub1_radius*eigenvector(2,3)
+			sub2_z = z_motherball - sub1_radius*eigenvector(3,3)
+			
+			sub3_x = x_motherball + sub2_radius*eigenvector(1,1)
+			sub3_y = y_motherball + sub2_radius*eigenvector(2,1)
+			sub3_z = z_motherball + sub2_radius*eigenvector(3,1)
+			sub4_x = x_motherball - sub2_radius*eigenvector(1,1)
+			sub4_y = y_motherball - sub2_radius*eigenvector(2,1)
+			sub4_z = z_motherball - sub2_radius*eigenvector(3,1) 
+
+			sub1_id = newball_start_id
+			sub2_id = newball_start_id + 1
+			sub3_id = newball_start_id + 2
+			sub4_id = newball_start_id + 3
+			newball_start_id = newball_start_id +4
+			command
+				ball radius sub1_radius x sub1_x y sub1_y z sub1_z id sub1_id
+				ball radius sub1_radius x sub2_x y sub2_y z sub2_z id sub2_id
+				ball radius sub2_radius x sub3_x y sub3_y z sub3_z id sub3_id
+				ball radius sub2_radius	x sub4_x y sub4_y z sub4_z id sub4_id
+				property density 3.0e-3 kn 1.5e6 ks 1.5e6 friction 0.0 range id sub1_id sub4_id
+			endcommand
+		end_if
+		;-------------18 particles
+		if breakage_type = 18
+			
+			sub1_radius =  radius_current/2.0*expansion_ratio ;*1.15
+			sub2_radius =  radius_current/4.0*expansion_ratio ;*1.15
+			distance1 = radius_current/sqrt(2.0)*0.999*expansion_ratio ;*1.15;y direction in equation in notes
+			kn_subball_bond = 2.0*G_motherball*(1+poiss_motherball)/( sub1_radius + sub2_radius )
+			ks_subball_bond = kn_subball_bond/2.5
+
+			;fake_sub1_radius = sub1_radius/2.0
+			;fake_sub2_radius = sub2_radius/2.0 
+			if failure_criterion = 1; change eigenvector
+				eigenvector(1,1) = b_maxcforce_x
+				eigenvector(2,1) = b_maxcforce_y
+				eigenvector(3,1) = b_maxcforce_z
+			
+				eigenvector(1,2)=   b_maxcforce_y*eigenvector(3,3)-b_maxcforce_z*eigenvector(2,3)	; the direction2
+				eigenvector(2,2)= -(b_maxcforce_x*eigenvector(3,3)-b_maxcforce_z*eigenvector(1,3))
+				eigenvector(3,2)=   b_maxcforce_x* eigenvector(2,3)-b_maxcforce_y*eigenvector(1,3)
+
+				eigenvector(1,3)= b_maxcforce_y * eigenvector(3,2) - b_maxcforce_z * eigenvector(2,2); to create a ficticious direction3 perpendicular to fmax and direction 2
+				eigenvector(2,3)= -(b_maxcforce_x * eigenvector(3,2) - b_maxcforce_z * eigenvector(1,2))
+				eigenvector(3,3)= b_maxcforce_x * eigenvector(2,2) - b_maxcforce_y * eigenvector(1,2)
+				
+				loop ww(1,3)	;normalization
+					egvtor_mag = sqrt(eigenvector(1,ww)^2+eigenvector(2,ww)^2+eigenvector(3,ww)^2) ; normalize
+					eigenvector(1,ww) = eigenvector(1,ww)/egvtor_mag
+					eigenvector(2,ww) = eigenvector(2,ww)/egvtor_mag
+					eigenvector(3,ww) = eigenvector(3,ww)/egvtor_mag
+				endloop
+				
+			end_if
+
+			sub1_x = x_motherball + sub1_radius*eigenvector(1,3)
+			sub1_y = y_motherball + sub1_radius*eigenvector(2,3)
+			sub1_z = z_motherball + sub1_radius*eigenvector(3,3)
+			sub2_x = x_motherball + sub2_radius*eigenvector(1,3)+distance1*eigenvector(1,1)
+			sub2_y = y_motherball + sub2_radius*eigenvector(2,3)+distance1*eigenvector(2,1)
+			sub2_z = z_motherball + sub2_radius*eigenvector(3,3)+distance1*eigenvector(3,1)
+			sub3_x = x_motherball + sub2_radius*eigenvector(1,3)-distance1*eigenvector(1,1)
+			sub3_y = y_motherball + sub2_radius*eigenvector(2,3)-distance1*eigenvector(2,1)
+			sub3_z = z_motherball + sub2_radius*eigenvector(3,3)-distance1*eigenvector(3,1)
+			sub4_x = x_motherball + sub2_radius*eigenvector(1,3)+distance1*eigenvector(1,2)
+			sub4_y = y_motherball + sub2_radius*eigenvector(2,3)+distance1*eigenvector(2,2)
+			sub4_z = z_motherball + sub2_radius*eigenvector(3,3)+distance1*eigenvector(3,2)
+			sub5_x = x_motherball + sub2_radius*eigenvector(1,3)-distance1*eigenvector(1,2)
+			sub5_y = y_motherball + sub2_radius*eigenvector(2,3)-distance1*eigenvector(2,2)
+			sub5_z = z_motherball + sub2_radius*eigenvector(3,3)-distance1*eigenvector(3,2)
+
+			sub6_x = x_motherball + sub2_radius*eigenvector(1,3)+distance1/sqrt(2.0)*eigenvector(1,1)+distance1/sqrt(2.0)*eigenvector(1,2)
+			sub6_y = y_motherball + sub2_radius*eigenvector(2,3)+distance1/sqrt(2.0)*eigenvector(2,1)+distance1/sqrt(2.0)*eigenvector(2,2)
+			sub6_z = z_motherball + sub2_radius*eigenvector(3,3)+distance1/sqrt(2.0)*eigenvector(3,1)+distance1/sqrt(2.0)*eigenvector(3,2)
+			sub7_x = x_motherball + sub2_radius*eigenvector(1,3)-distance1/sqrt(2.0)*eigenvector(1,1)-distance1/sqrt(2.0)*eigenvector(1,2)
+			sub7_y = y_motherball + sub2_radius*eigenvector(2,3)-distance1/sqrt(2.0)*eigenvector(2,1)-distance1/sqrt(2.0)*eigenvector(2,2)
+			sub7_z = z_motherball + sub2_radius*eigenvector(3,3)-distance1/sqrt(2.0)*eigenvector(3,1)-distance1/sqrt(2.0)*eigenvector(3,2)
+			sub8_x = x_motherball + sub2_radius*eigenvector(1,3)+distance1/sqrt(2.0)*eigenvector(1,1)-distance1/sqrt(2.0)*eigenvector(1,2)
+			sub8_y = y_motherball + sub2_radius*eigenvector(2,3)+distance1/sqrt(2.0)*eigenvector(2,1)-distance1/sqrt(2.0)*eigenvector(2,2)
+			sub8_z = z_motherball + sub2_radius*eigenvector(3,3)+distance1/sqrt(2.0)*eigenvector(3,1)-distance1/sqrt(2.0)*eigenvector(3,2)
+			sub9_x = x_motherball + sub2_radius*eigenvector(1,3)-distance1/sqrt(2.0)*eigenvector(1,1)+distance1/sqrt(2.0)*eigenvector(1,2)
+			sub9_y = y_motherball + sub2_radius*eigenvector(2,3)-distance1/sqrt(2.0)*eigenvector(2,1)+distance1/sqrt(2.0)*eigenvector(2,2)
+			sub9_z = z_motherball + sub2_radius*eigenvector(3,3)-distance1/sqrt(2.0)*eigenvector(3,1)+distance1/sqrt(2.0)*eigenvector(3,2)
+
+
+			
+			sub10_x = x_motherball - sub1_radius*eigenvector(1,3)
+			sub10_y = y_motherball - sub1_radius*eigenvector(2,3)
+			sub10_z = z_motherball - sub1_radius*eigenvector(3,3)
+			sub11_x = x_motherball - sub2_radius*eigenvector(1,3)+distance1*eigenvector(1,1)
+			sub11_y = y_motherball - sub2_radius*eigenvector(2,3)+distance1*eigenvector(2,1)
+			sub11_z = z_motherball - sub2_radius*eigenvector(3,3)+distance1*eigenvector(3,1)
+			sub12_x = x_motherball - sub2_radius*eigenvector(1,3)-distance1*eigenvector(1,1)
+			sub12_y = y_motherball - sub2_radius*eigenvector(2,3)-distance1*eigenvector(2,1)
+			sub12_z = z_motherball - sub2_radius*eigenvector(3,3)-distance1*eigenvector(3,1)
+			sub13_x = x_motherball - sub2_radius*eigenvector(1,3)+distance1*eigenvector(1,2)
+			sub13_y = y_motherball - sub2_radius*eigenvector(2,3)+distance1*eigenvector(2,2)
+			sub13_z = z_motherball - sub2_radius*eigenvector(3,3)+distance1*eigenvector(3,2)
+			sub14_x = x_motherball - sub2_radius*eigenvector(1,3)-distance1*eigenvector(1,2)
+			sub14_y = y_motherball - sub2_radius*eigenvector(2,3)-distance1*eigenvector(2,2)
+			sub14_z = z_motherball - sub2_radius*eigenvector(3,3)-distance1*eigenvector(3,2)
+			
+			sub15_x = x_motherball - sub2_radius*eigenvector(1,3)+distance1/sqrt(2.0)*eigenvector(1,1)+distance1/sqrt(2.0)*eigenvector(1,2)
+			sub15_y = y_motherball - sub2_radius*eigenvector(2,3)+distance1/sqrt(2.0)*eigenvector(2,1)+distance1/sqrt(2.0)*eigenvector(2,2)
+			sub15_z = z_motherball - sub2_radius*eigenvector(3,3)+distance1/sqrt(2.0)*eigenvector(3,1)+distance1/sqrt(2.0)*eigenvector(3,2)
+			sub16_x = x_motherball - sub2_radius*eigenvector(1,3)-distance1/sqrt(2.0)*eigenvector(1,1)-distance1/sqrt(2.0)*eigenvector(1,2)
+			sub16_y = y_motherball - sub2_radius*eigenvector(2,3)-distance1/sqrt(2.0)*eigenvector(2,1)-distance1/sqrt(2.0)*eigenvector(2,2)
+			sub16_z = z_motherball - sub2_radius*eigenvector(3,3)-distance1/sqrt(2.0)*eigenvector(3,1)-distance1/sqrt(2.0)*eigenvector(3,2)
+			sub17_x = x_motherball - sub2_radius*eigenvector(1,3)+distance1/sqrt(2.0)*eigenvector(1,1)-distance1/sqrt(2.0)*eigenvector(1,2)
+			sub17_y = y_motherball - sub2_radius*eigenvector(2,3)+distance1/sqrt(2.0)*eigenvector(2,1)-distance1/sqrt(2.0)*eigenvector(2,2)
+			sub17_z = z_motherball - sub2_radius*eigenvector(3,3)+distance1/sqrt(2.0)*eigenvector(3,1)-distance1/sqrt(2.0)*eigenvector(3,2)
+			sub18_x = x_motherball - sub2_radius*eigenvector(1,3)-distance1/sqrt(2.0)*eigenvector(1,1)+distance1/sqrt(2.0)*eigenvector(1,2)
+			sub18_y = y_motherball - sub2_radius*eigenvector(2,3)-distance1/sqrt(2.0)*eigenvector(2,1)+distance1/sqrt(2.0)*eigenvector(2,2)
+			sub18_z = z_motherball - sub2_radius*eigenvector(3,3)-distance1/sqrt(2.0)*eigenvector(3,1)+distance1/sqrt(2.0)*eigenvector(3,2)
+			
+			sub1_id = newball_start_id
+			sub2_id = newball_start_id + 1
+			sub3_id = newball_start_id + 2
+			sub4_id = newball_start_id + 3
+			sub5_id = newball_start_id + 4
+			sub6_id = newball_start_id + 5
+			sub7_id = newball_start_id + 6
+			sub8_id = newball_start_id + 7
+			sub9_id = newball_start_id + 8
+			sub10_id = newball_start_id + 9
+			sub11_id = newball_start_id + 10
+			sub12_id = newball_start_id + 11
+			sub13_id = newball_start_id + 12
+			sub14_id = newball_start_id + 13
+			sub15_id = newball_start_id + 14
+			sub16_id = newball_start_id + 15
+			sub17_id = newball_start_id + 16
+			sub18_id = newball_start_id + 17
+			
+			newball_start_id = newball_start_id +18
+			new_gen_cluster = new_gen_cluster + 2
+
+			clump1_id = new_gen_clump + 1
+			clump2_id = new_gen_clump + 2
+			new_gen_clump = new_gen_clump +2
+			command
+				ball radius sub1_radius x sub1_x y sub1_y z sub1_z id sub1_id
+				ball radius sub2_radius x sub2_x y sub2_y z sub2_z id sub2_id
+				ball radius sub2_radius x sub3_x y sub3_y z sub3_z id sub3_id
+				ball radius sub2_radius x sub4_x y sub4_y z sub4_z id sub4_id
+				ball radius sub2_radius x sub5_x y sub5_y z sub5_z id sub5_id
+				ball radius sub2_radius x sub6_x y sub6_y z sub6_z id sub6_id
+				ball radius sub2_radius x sub7_x y sub7_y z sub7_z id sub7_id
+				ball radius sub2_radius x sub8_x y sub8_y z sub8_z id sub8_id
+				ball radius sub2_radius x sub9_x y sub9_y z sub9_z id sub9_id
+
+				ball radius sub1_radius x sub10_x y sub10_y z sub10_z id sub10_id
+				ball radius sub2_radius x sub11_x y sub11_y z sub11_z id sub11_id
+				ball radius sub2_radius x sub12_x y sub12_y z sub12_z id sub12_id
+				ball radius sub2_radius x sub13_x y sub13_y z sub13_z id sub13_id
+				ball radius sub2_radius x sub14_x y sub14_y z sub14_z id sub14_id
+				ball radius sub2_radius x sub15_x y sub15_y z sub15_z id sub15_id
+				ball radius sub2_radius x sub16_x y sub16_y z sub16_z id sub16_id
+				ball radius sub2_radius x sub17_x y sub17_y z sub17_z id sub17_id
+				ball radius sub2_radius x sub18_x y sub18_y z sub18_z id sub18_id
+	
+				property density 2.75e3 poiss material_poiss  shear material_G  friction 0.5 range id sub1_id sub18_id
+				
+				clump add id clump1_id range id sub1_id sub9_id
+				clump add id clump2_id range id sub10_id sub18_id
+				
+				;property pb_n 58.74e8 pb_s 58.74e8 pb_r 1 pb_kn kn_subball_bond  pb_ks ks_subball_bond  range id sub1_id sub9_id
+				;property pb_n 58.74e8 pb_s 58.74e8 pb_r 1 pb_kn kn_subball_bond  pb_ks ks_subball_bond  range id sub10_id sub18_id
+			endcommand
+			address_clump1 = find_clump( clump1_id ) 
+			address_clump2 = find_clump( clump2_id )
+			cl_extra( address_clump1 ,1 ) = kn_subball_bond 
+			cl_extra( address_clump1 ,2 ) = ks_subball_bond 
+			cl_extra( address_clump2 ,1 ) = kn_subball_bond 
+			cl_extra( address_clump2 ,2 ) = ks_subball_bond 
+			loop jj(sub1_id,sub18_id)
+				bpnew = find_ball(jj)
+				b_extra(bpnew,1) = 1e15;
+			end_loop
+		end_if
+
+		ii=b_delete(bp)
+		
+		xbreakage(breakage_events) = string(b_x(bp))
+		ybreakage(breakage_events) = string(b_y(bp))
+		zbreakage(breakage_events) = string(b_z(bp))
+end
+;-----------------------------------------------------------------
+;-----------------------------------------------------------------
+;-----------------------------------------------------------------
+;-----------------------------------------------------------------
+def pb_bond_reactivate
+	loop ii(1,new_gen_cluster)
+		cluster_id1 = first_new_ball + (ii-1)*9
+		cluster_id2 = first_new_ball + ii*9 -1
+		command 
+			property pb_n sigma0 pb_s sigma0 range id cluster_id1 cluster_id2 
+		end_command
+
+	end_loop
+
+	
+;	new_balls_gen = first_new_ball - last_new_ball
+;	new_clusters_gen = new_balls_gen /9.0
+;	if new_clusters_gen # 0
+;		loop ii(1,new_clusters_gen)
+;			new_cluster_lower_id = first_new_ball + (ii-1)*9
+;			new_cluster_upper_id = new_cluster_lower_id + 8
+;			property pb_n sigma0 pb_s sigma0 range id new_cluster_lower_id  new_cluster_upper_id 
+;		end_loop
+;	end_if
+
+end
+;-----------------------------------------------------------------
+;-----------------------------------------------------------------
+;-----------------------------------------------------------------
+;-----------------------------------------------------------------
+def clump_release_pb_activate
+if new_gen_clump > 1	
+	loop ii(1,new_gen_clump)
+		address_clump = find_clump( ii )
+		kn_reactivated = cl_extra( address_clump , 1 )
+		ks_reactivated = cl_extra( address_clump , 2 )
+		cluster_id1 = first_new_ball + (ii-1)*9
+		cluster_id2 = first_new_ball + ii*9 -1
+		command 
+			clump release id ii
+			initial radius mul 2.0 range id cluster_id1 cluster_id2
+			property pb_n sigma0 pb_s sigma0 pb_r 1 pb_kn kn_reactivated pb_ks ks_reactivated range id cluster_id1 cluster_id2
+			pause
+			
+		end_command
+	end_loop
+end_if
+end

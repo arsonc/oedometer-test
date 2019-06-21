@@ -1,0 +1,84 @@
+def compression
+
+total_distance = distance_ctest
+
+loading_wall = find_wall(5)
+;loading_distance = final_strain*box_height1*2
+loading_speed = w_zvel( loading_wall )
+
+cycle_each = 100
+;cycle_total = loading_distance/loading_speed/cycle_each
+newball_start_id = total_ball_sample+1
+cycle_total = final_strain*(abs(box_height1)+abs(box_height2)-total_distance)/(abs(loading_speed)*cycle_each)
+
+
+loop cycle_count(1,cycle_total)
+
+	pbbreak_count_ii = 0
+	contact_test
+	total_distance = total_distance + distance_ctest
+
+	command	
+		Wall property zv  loading_speed  range id = 5
+		cycle cycle_each calm 5
+	endcommand
+	
+	total_distance = total_distance+abs(loading_speed)*cycle_each
+	;ball_number
+	;breakage_check
+
+
+	command
+		Wall property zv 0.0  range id = 5
+		solve average 0.005 maximum 1e-10 steps 10000
+		;save middle.sav
+	endcommand
+	
+	iii = find_wall(5)
+	kkk = abs(w_zfob(iii))
+	compressive_force(cycle_count) =string(kkk)
+
+	lll = abs(box_height1)+abs(box_height2)-total_distance
+	sample_height(cycle_count) = string( lll )
+
+	mmm = breakage_events
+	s_breakage_events(cycle_count) = string( mmm )
+	
+	nnn = pbbreak_count_ii
+	s_breakage_events2(cycle_count) =string( nnn )
+	
+	
+	
+endloop
+status=open('breakage_xpos.txt', 1, 1)
+status=write(xbreakage , breakage_events )
+status=close
+
+status=open('breakage_ypos.txt', 1, 1)
+status=write(ybreakage , breakage_events )
+status=close
+
+status=open('breakage_zpos.txt', 1, 1)
+status=write(zbreakage , breakage_events )
+status=close
+
+iii = cycle_count-1
+status=open('compressive_force.txt', 1, 1)
+status=write(compressive_force , iii )
+status=close
+
+status=open('sample_height.txt', 1, 1)
+status=write(sample_height , iii )
+status=close
+
+status=open('breakage_events.txt', 1, 1)
+status=write(s_breakage_events, iii )
+status=close
+
+
+status=open('breakage_events2.txt', 1, 1)
+status=write(s_breakage_events2, iii )
+status=close
+
+
+end
